@@ -1,0 +1,78 @@
+---
+// Labeled image placeholder. Mirrors the wireframe's "imglab" slots so real
+// photos/screenshots drop in later. When `src` is provided, renders the image;
+// otherwise renders a labeled placeholder box.
+interface Props {
+  label: string; // e.g. "main stage · wide"
+  src?: string; // real asset path when available
+  alt?: string; // required once src is set (SEO)
+  ratio?: string; // CSS aspect-ratio, e.g. "16 / 9"
+  radius?: string; // CSS var name without var(), e.g. "md"
+  class?: string;
+}
+const {
+  label,
+  src,
+  alt = "",
+  ratio,
+  radius = "md",
+  class: className = "",
+} = Astro.props;
+// With an aspect-ratio, the slot sizes itself by width — kill min-height so it
+// can't balloon when a grid parent stretches. Without one, fill the cell.
+const style = ratio ? `aspect-ratio:${ratio};min-height:0;` : "min-height:100%;";
+---
+
+<div
+  class:list={["img-slot", className]}
+  style={`${style}border-radius:var(--nile-r-${radius});`}
+>
+  {
+    src ? (
+      <img src={src} alt={alt} loading="lazy" />
+    ) : (
+      <span class="img-slot__label">{label}</span>
+    )
+  }
+</div>
+
+<style>
+  .img-slot {
+    position: relative;
+    overflow: hidden;
+    background: var(--nile-bg-raised);
+    background-image: linear-gradient(
+        135deg,
+        transparent calc(50% - 0.75px),
+        var(--nile-border) calc(50% - 0.75px),
+        var(--nile-border) calc(50% + 0.75px),
+        transparent calc(50% + 0.75px)
+      ),
+      linear-gradient(
+        45deg,
+        transparent calc(50% - 0.75px),
+        var(--nile-border) calc(50% - 0.75px),
+        var(--nile-border) calc(50% + 0.75px),
+        transparent calc(50% + 0.75px)
+      );
+    border: 1px solid var(--nile-border);
+  }
+  .img-slot img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  .img-slot__label {
+    position: absolute;
+    bottom: 6px;
+    left: 6px;
+    font-family: var(--nile-font-body);
+    font-weight: 600;
+    font-size: 0.65rem;
+    color: var(--nile-txt-tertiary);
+    background: color-mix(in srgb, var(--nile-bg-page) 70%, transparent);
+    padding: 2px 6px;
+    border-radius: var(--nile-r-xs);
+  }
+</style>

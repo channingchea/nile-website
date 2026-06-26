@@ -1,0 +1,352 @@
+---
+import { NAV } from "../site.config";
+const path = Astro.url.pathname;
+---
+
+<header class="site-header">
+  <div class="nile-container header-inner">
+    <a href="/" class="brand" aria-label="Nile home">Nile</a>
+
+    <nav class="nav" aria-label="Primary">
+      {
+        NAV.map((item) =>
+          "children" in item ? (
+            <div class="nav-dropdown">
+              <button
+                type="button"
+                class:list={[
+                  "nav-link nav-trigger",
+                  { active: item.children.some((c) => c.href === path) },
+                ]}
+                aria-haspopup="true"
+                aria-expanded="false"
+              >
+                {item.label}
+                <span class="caret" aria-hidden="true">▾</span>
+              </button>
+              <div class="nav-menu" role="menu">
+                {item.children.map((c) => (
+                  <a
+                    href={c.href}
+                    role="menuitem"
+                    class:list={["nav-menu-item", { active: path === c.href }]}
+                  >
+                    {c.label}
+                  </a>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <a
+              href={item.href}
+              class:list={["nav-link", { active: path === item.href }]}
+            >
+              {item.label}
+            </a>
+          ),
+        )
+      }
+    </nav>
+
+    <button
+      type="button"
+      data-waitlist
+      data-segment="host"
+      class="nile-btn nile-btn--primary header-cta"
+    >
+      Start Streaming →
+    </button>
+
+    <button
+      class="nav-toggle"
+      aria-label="Open menu"
+      aria-expanded="false"
+      aria-controls="mobile-nav"
+    >
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+
+  <!-- Mobile slide-down menu (shown when .nav-toggle is active) -->
+  <nav id="mobile-nav" class="mobile-nav" aria-label="Mobile">
+    <div class="nile-container mobile-nav-inner">
+      {
+        NAV.map((item) =>
+          "children" in item ? (
+            <div class="mobile-group">
+              <span class="mobile-group-label">{item.label}</span>
+              {item.children.map((c) => (
+                <a
+                  href={c.href}
+                  class:list={["mobile-link", { active: path === c.href }]}
+                >
+                  {c.label}
+                </a>
+              ))}
+            </div>
+          ) : (
+            <a
+              href={item.href}
+              class:list={["mobile-link", { active: path === item.href }]}
+            >
+              {item.label}
+            </a>
+          ),
+        )
+      }
+      <button
+        type="button"
+        data-waitlist
+        data-segment="host"
+        class="nile-btn nile-btn--primary mobile-cta"
+      >
+        Start Streaming →
+      </button>
+    </div>
+  </nav>
+</header>
+
+<script is:inline>
+  (() => {
+    const toggle = document.querySelector(".nav-toggle");
+    const menu = document.getElementById("mobile-nav");
+    if (!toggle || !menu) return;
+    const setOpen = (open) => {
+      toggle.setAttribute("aria-expanded", String(open));
+      menu.classList.toggle("open", open);
+      document.body.classList.toggle("nav-open", open);
+    };
+    toggle.addEventListener("click", () =>
+      setOpen(toggle.getAttribute("aria-expanded") !== "true"),
+    );
+    // Close after tapping a link, or on Escape.
+    menu.addEventListener("click", (e) => {
+      if (e.target.closest("a, [data-waitlist]")) setOpen(false);
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") setOpen(false);
+    });
+  })();
+</script>
+
+<style>
+  .site-header {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    background: color-mix(in srgb, var(--nile-bg-page) 80%, transparent);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--nile-border);
+  }
+  .header-inner {
+    display: flex;
+    align-items: center;
+    gap: var(--nile-s-6);
+    height: 64px;
+  }
+  .brand {
+    font-family: var(--nile-font-display);
+    font-weight: 800;
+    font-size: 1.5rem;
+    color: var(--nile-volt);
+    text-decoration: none;
+  }
+  .nav {
+    display: flex;
+    gap: var(--nile-s-4);
+    margin-left: auto;
+  }
+  .nav-link {
+    color: var(--nile-txt-secondary);
+    font-size: 0.95rem;
+    text-decoration: none;
+  }
+  .nav-link:hover,
+  .nav-link.active {
+    color: var(--nile-txt-primary);
+  }
+
+  /* Dropdown */
+  .nav-dropdown {
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+  .nav-trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-family: var(--nile-font-body);
+    padding: 0;
+  }
+  .caret {
+    font-size: 0.7rem;
+    transition: transform 0.15s ease;
+  }
+  .nav-dropdown:hover .caret,
+  .nav-dropdown:focus-within .caret {
+    transform: rotate(180deg);
+  }
+  .nav-menu {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    margin-top: var(--nile-s-3);
+    min-width: 200px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: var(--nile-s-2);
+    background: var(--nile-bg-surface);
+    border: 1px solid var(--nile-border);
+    border-radius: var(--nile-r-md);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-4px);
+    transition:
+      opacity 0.15s ease,
+      transform 0.15s ease,
+      visibility 0.15s;
+    z-index: 60;
+  }
+  /* Hover bridge so the menu doesn't close in the gap below the trigger */
+  .nav-dropdown::after {
+    content: "";
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    height: var(--nile-s-3);
+  }
+  .nav-dropdown:hover .nav-menu,
+  .nav-dropdown:focus-within .nav-menu {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+  }
+  .nav-menu-item {
+    color: var(--nile-txt-secondary);
+    font-size: 0.95rem;
+    text-decoration: none;
+    padding: var(--nile-s-2) var(--nile-s-3);
+    border-radius: var(--nile-r-sm);
+    white-space: nowrap;
+  }
+  .nav-menu-item:hover,
+  .nav-menu-item.active {
+    color: var(--nile-txt-primary);
+    background: var(--nile-bg-raised);
+    text-decoration: none;
+  }
+
+  .header-cta {
+    padding: var(--nile-s-2) var(--nile-s-4);
+    font-size: 0.9rem;
+  }
+  .nav-toggle {
+    display: none;
+    flex-direction: column;
+    gap: 4px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: var(--nile-s-2);
+  }
+  .nav-toggle span {
+    width: 22px;
+    height: 2px;
+    background: var(--nile-txt-primary);
+    border-radius: 2px;
+    transition: transform 0.2s ease, opacity 0.2s ease;
+  }
+  /* Hamburger → X when open */
+  .nav-toggle[aria-expanded="true"] span:nth-child(1) {
+    transform: translateY(6px) rotate(45deg);
+  }
+  .nav-toggle[aria-expanded="true"] span:nth-child(2) {
+    opacity: 0;
+  }
+  .nav-toggle[aria-expanded="true"] span:nth-child(3) {
+    transform: translateY(-6px) rotate(-45deg);
+  }
+
+  /* Mobile slide-down menu */
+  .mobile-nav {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: color-mix(in srgb, var(--nile-bg-page) 95%, transparent);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--nile-border);
+    max-height: calc(100dvh - 64px);
+    overflow-y: auto;
+  }
+  .mobile-nav.open {
+    display: block;
+  }
+  .mobile-nav-inner {
+    display: flex;
+    flex-direction: column;
+    gap: var(--nile-s-1);
+    padding-block: var(--nile-s-4) var(--nile-s-6);
+  }
+  .mobile-group {
+    display: flex;
+    flex-direction: column;
+    gap: var(--nile-s-1);
+  }
+  .mobile-group-label {
+    color: var(--nile-txt-tertiary);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: var(--nile-s-3) var(--nile-s-2) var(--nile-s-1);
+  }
+  .mobile-link {
+    color: var(--nile-txt-secondary);
+    font-size: 1.05rem;
+    font-weight: 500;
+    text-decoration: none;
+    padding: var(--nile-s-3) var(--nile-s-2);
+    border-radius: var(--nile-r-sm);
+  }
+  .mobile-group .mobile-link {
+    padding-left: var(--nile-s-4);
+  }
+  .mobile-link:hover,
+  .mobile-link.active {
+    color: var(--nile-txt-primary);
+    background: var(--nile-bg-surface);
+    text-decoration: none;
+  }
+  .mobile-cta {
+    margin-top: var(--nile-s-4);
+    justify-content: center;
+  }
+
+  @media (max-width: 880px) {
+    .nav {
+      display: none;
+    }
+    .header-cta {
+      display: none;
+    }
+    .nav-toggle {
+      display: flex;
+      margin-left: auto;
+    }
+  }
+  /* Above the breakpoint the mobile menu never shows, even if toggled. */
+  @media (min-width: 881px) {
+    .mobile-nav {
+      display: none !important;
+    }
+  }
+</style>

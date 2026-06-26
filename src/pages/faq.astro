@@ -1,0 +1,410 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+
+const title = "Nile FAQ — Hosting, Tickets, Watching & Advertising";
+const description =
+  "Answers on streaming equipment, ticket pricing, payouts, replays, watching without an app, and advertising on Nile.";
+
+const faqSchema = JSON.stringify({
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: [
+    {
+      "@type": "Question",
+      name: "What equipment do I need to stream?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "Just phones. Mount two or more phones at different angles and you have a Nile show. There's no minimum equipment requirement beyond that. A crew of two friends handling the phones is all it takes to get started.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "How does pricing work? Where does my money go?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "You set the ticket price for your event. Nile takes a cut to cover platform costs, and you keep roughly 50% of net revenue. The same applies to replay purchases after the show ends. Payouts go through Stripe directly to your account.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "Can I offer a free event?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "Not currently. Every event on Nile is ticketed. Part of that is intentional positioning — Nile is a premium experience, not another free streaming platform. But it's also practical: live multi-angle streaming carries real infrastructure costs that a free ticket price can't cover. Ticketing is how we keep the platform sustainable for everyone on it.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "What camera angles can I stream?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "As many as you have phones for. Each phone in your setup becomes a separate angle that your audience can switch between. A two-phone setup gives you two angles. Add more phones, get more angles.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "What happens if my stream drops mid-show?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "You can rejoin the stream without ending the show. The broadcast keeps running, and your audience stays in the session. A dropped connection doesn't mean a cancelled event.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "How does VOD work?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "Every Nile event automatically generates a replay when the stream ends. Live ticket buyers get access included at no extra charge. You can set a separate replay price for anyone who wants to watch after the fact. Replay purchases pay out the same way as ticket sales.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "Do viewers need to download an app?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "No. Viewers can watch any Nile event from a web browser without downloading anything. The Nile app is available for iOS and Android and offers the full experience, but it's not required.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "Missed the show — can I still watch?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "Yes, if the host has enabled replay access. Most Nile events include an on-demand replay you can purchase after the fact. Check the event page to see if replay is available and what the access price is.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "What shows up in my feed?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "Only what you asked for. When you sign up, you pick the topics you care about — and that's all Nile shows you. There's no hidden algorithm surfacing content you didn't choose. If your interests change, open Settings at any time and update your topics.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "How do I get started advertising on Nile?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "Through the self-serve ad portal. Set your budget, pick your audience category, choose your dates, and launch. No sales call, no minimum spend, no agency required.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "Is Nile available in my country?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "Nile is available globally for viewers. Host availability and payout support depend on Stripe's coverage in your region. Check Stripe's supported countries list to confirm payouts are available where you are.",
+      },
+    },
+  ],
+});
+
+const sections = [
+  {
+    id: "hosts",
+    label: "For hosts",
+    descriptor: "Going live & getting paid",
+    items: [
+      {
+        q: "What equipment do I need to stream?",
+        a: "Just phones. Mount two or more phones at different angles and you have a Nile show. There's no minimum equipment requirement beyond that. A crew of two friends handling the phones is all it takes to get started.",
+      },
+      {
+        q: "How does pricing work? Where does my money go?",
+        a: "You set the ticket price for your event. Nile takes a cut to cover platform costs, and you keep roughly 50% of net revenue. The same applies to replay purchases after the show ends. Payouts go through Stripe directly to your account.",
+      },
+      {
+        q: "Can I offer a free event?",
+        a: "Not currently. Every event on Nile is ticketed. Part of that is intentional positioning — Nile is a premium experience, not another free streaming platform. But it's also practical: live multi-angle streaming carries real infrastructure costs that a free ticket price can't cover. Ticketing is how we keep the platform sustainable for everyone on it. If your goal is reach over revenue, free platforms are the right tool for that. If you want to get paid for your content, Nile is built for you.",
+      },
+      {
+        q: "What if nobody buys a ticket?",
+        a: "That's a real risk worth thinking about before you go live. The best way to avoid it is to build anticipation before the show — announce early, share your event link, and give your audience a reason to tune in. Nile gives you a ticketed experience worth promoting. The promotion is still on you.",
+      },
+      {
+        q: "What camera angles can I stream?",
+        a: "As many as you have phones for. Each phone in your setup becomes a separate angle that your audience can switch between. A two-phone setup gives you two angles. Add more phones, get more angles.",
+      },
+      {
+        q: "What happens if my stream drops mid-show?",
+        a: "You can rejoin the stream without ending the show. The broadcast keeps running, and your audience stays in the session. A dropped connection doesn't mean a cancelled event.",
+      },
+      {
+        q: "How does VOD work?",
+        a: "Every Nile event automatically generates a replay when the stream ends. Live ticket buyers get access included at no extra charge. You can set a separate replay price for anyone who wants to watch after the fact. You control that price, and replay purchases pay out the same way as ticket sales.",
+      },
+    ],
+  },
+  {
+    id: "viewers",
+    label: "For fans",
+    descriptor: "Watching & tickets",
+    items: [
+      {
+        q: "Do viewers need to download an app?",
+        a: "No. Viewers can watch any Nile event from a web browser without downloading anything. The Nile app is available for iOS and Android and offers the full experience, but it's not required.",
+      },
+      {
+        q: "Missed the show — can I still watch?",
+        a: "Yes, if the host has enabled replay access. Most Nile events include an on-demand replay you can purchase after the fact. Check the event page to see if replay is available and what the access price is.",
+      },
+      {
+        q: "How do I find events to watch?",
+        a: "Download the Nile app and follow the creators, artists, or communities you care about. You'll be notified when they go live or post a new event. You can also browse upcoming events in the Discover tab.",
+      },
+      {
+        q: "What shows up in my feed?",
+        a: "Only what you asked for. When you sign up, you pick the topics you care about — and that's all Nile shows you. There's no hidden algorithm surfacing content you didn't choose. If your interests change, open Settings at any time and update your topics.",
+      },
+    ],
+  },
+  {
+    id: "advertisers",
+    label: "For advertisers",
+    descriptor: "Reaching the audience",
+    items: [
+      {
+        q: "How do I get started advertising on Nile?",
+        a: "Through the self-serve ad portal. Set your budget, pick your audience category, choose your dates, and launch. No sales call, no minimum spend, no agency required.",
+      },
+      {
+        q: "What ad formats are available?",
+        a: "Two formats: in-stream ads that run during live events, and event boosts that increase an event's visibility before it goes live. Both are managed through the same self-serve portal.",
+      },
+    ],
+  },
+  {
+    id: "general",
+    label: "General",
+    descriptor: "Everything else",
+    items: [
+      {
+        q: "Is Nile available in my country?",
+        a: "Nile is available globally for viewers. Host availability and payout support depend on Stripe's coverage in your region. Check Stripe's supported countries list to confirm payouts are available where you are.",
+      },
+    ],
+  },
+];
+---
+
+<BaseLayout title={title} description={description} canonical="/faq">
+  <Fragment slot="head">
+    <script type="application/ld+json" set:html={faqSchema} />
+  </Fragment>
+
+  <!-- PAGE HEADER -->
+  <section class="page-header nile-section">
+    <div class="nile-container header-inner">
+      <p class="nile-eyebrow">FAQ</p>
+      <h1>Questions? We've got answers.</h1>
+      <p class="header-sub">
+        Everything you need to know about going live, watching, and advertising
+        on Nile.
+      </p>
+    </div>
+  </section>
+
+  <!-- FAQ CONTENT -->
+  <section class="faq-body nile-section">
+    <div class="nile-container faq-sections">
+      {
+        sections.map((s, si) => (
+          <section id={s.id} class="faq-section">
+            <h2 class="section-label">
+              {s.label}
+              <span class="section-descriptor">{s.descriptor}</span>
+            </h2>
+            <div class="faq-items">
+              {s.items.map((item, ii) => (
+                <details class="faq-item" open={si === 0 && ii === 0}>
+                  <summary class="faq-q">
+                    <span>{item.q}</span>
+                    <span class="faq-toggle" aria-hidden="true" />
+                  </summary>
+                  <p class="faq-a">{item.a}</p>
+                </details>
+              ))}
+            </div>
+          </section>
+        ))
+      }
+
+      <!-- Still have questions -->
+      <div class="still-questions nile-card">
+        <p class="sq-label">Still have questions?</p>
+        <p>
+          Contact us at <a href="mailto:support@joinnile.com" class="email-link"
+            >support@joinnile.com</a
+          > and we'll get back to you.
+        </p>
+      </div>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  /* Header sits on page-black (section 1). Generous bottom padding gives the
+     hero its own breathing room before the tinted FAQ band below. */
+  .page-header {
+    padding-block: var(--nile-s-16) var(--nile-s-12);
+  }
+  .header-inner {
+    max-width: 760px;
+  }
+  .header-inner h1 {
+    margin-bottom: var(--nile-s-6);
+  }
+  .header-sub {
+    color: var(--nile-txt-secondary);
+    margin: 0;
+    font-size: 1.1rem;
+    max-width: 540px;
+  }
+
+  /* Layout — single centered column. FAQ body is section 2, so it takes the
+     automatic surface tint from brand.css. Standard section top padding gives
+     the first "For hosts" heading clean clearance from the band's top edge. */
+  .faq-body {
+    padding-block: var(--nile-s-16);
+  }
+  .faq-sections {
+    max-width: 920px;
+  }
+
+  /* Section headings */
+  .faq-section {
+    margin-bottom: var(--nile-s-10);
+  }
+  .section-label {
+    display: flex;
+    align-items: baseline;
+    gap: var(--nile-s-3);
+    flex-wrap: wrap;
+    font-family: var(--nile-font-display);
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--nile-txt-primary);
+    margin-bottom: var(--nile-s-4);
+  }
+  .section-descriptor {
+    font-family: var(--nile-font-body);
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: var(--nile-txt-tertiary);
+  }
+
+  /* FAQ items — one rounded card per group */
+  .faq-items {
+    border: 1px solid var(--nile-border);
+    border-radius: var(--nile-r-lg);
+    background: var(--nile-bg-raised);
+    overflow: hidden;
+  }
+  .faq-item {
+    border-bottom: 1px solid var(--nile-border);
+    border-left: 2px solid transparent;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .faq-item:last-child {
+    border-bottom: none;
+  }
+  .faq-item[open] {
+    background: color-mix(in srgb, var(--nile-volt) 7%, var(--nile-bg-raised));
+    border-left-color: var(--nile-volt);
+  }
+  .faq-q {
+    padding: var(--nile-s-5) var(--nile-s-6);
+    cursor: pointer;
+    font-weight: 700;
+    font-size: 1.05rem;
+    list-style: none;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--nile-s-4);
+    color: var(--nile-txt-primary);
+    transition: color 0.15s;
+  }
+  .faq-q::-webkit-details-marker {
+    display: none;
+  }
+  .faq-item[open] .faq-q {
+    color: var(--nile-volt);
+  }
+
+  /* Circular +/- toggle */
+  .faq-toggle {
+    position: relative;
+    flex: 0 0 auto;
+    width: 32px;
+    height: 32px;
+    border-radius: var(--nile-r-pill);
+    border: 1px solid var(--nile-border);
+    background: var(--nile-bg-surface);
+    transition: background 0.15s, border-color 0.15s;
+  }
+  /* horizontal bar (always) */
+  .faq-toggle::before,
+  .faq-toggle::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 12px;
+    height: 2px;
+    background: var(--nile-txt-secondary);
+    border-radius: 2px;
+    transform: translate(-50%, -50%);
+    transition: opacity 0.2s, background 0.15s;
+  }
+  /* vertical bar — hidden when open to make a minus */
+  .faq-toggle::after {
+    transform: translate(-50%, -50%) rotate(90deg);
+  }
+  .faq-item[open] .faq-toggle {
+    background: var(--nile-volt);
+    border-color: var(--nile-volt);
+  }
+  .faq-item[open] .faq-toggle::before {
+    background: var(--nile-bg-page);
+  }
+  .faq-item[open] .faq-toggle::after {
+    opacity: 0;
+  }
+
+  .faq-a {
+    color: var(--nile-txt-secondary);
+    padding: 0 var(--nile-s-6) var(--nile-s-5);
+    margin: 0;
+    line-height: 1.7;
+    max-width: 70ch;
+  }
+
+  /* Still have questions */
+  .still-questions {
+    margin-top: var(--nile-s-6);
+  }
+  .sq-label {
+    font-weight: 700;
+    margin-bottom: var(--nile-s-2);
+  }
+  .still-questions p:last-child {
+    color: var(--nile-txt-secondary);
+    margin: 0;
+  }
+  .email-link {
+    color: var(--nile-volt);
+    font-weight: 600;
+  }
+
+  @media (max-width: 560px) {
+    .faq-q {
+      padding: var(--nile-s-4);
+      font-size: 1rem;
+    }
+    .faq-a {
+      padding: 0 var(--nile-s-4) var(--nile-s-4);
+    }
+  }
+</style>

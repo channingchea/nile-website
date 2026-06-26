@@ -1,0 +1,238 @@
+/* Nile brand system — web mirror of the app's Nile Brand Kit (lib/theme.dart).
+   Source of truth for colors/type/radii. Keep in sync with the app. */
+
+:root {
+  /* Surfaces — app runs dark; site matches */
+  --nile-bg-page: #0a0a0a;
+  --nile-bg-surface: #18181b;
+  --nile-bg-raised: #27272a;
+
+  /* Text */
+  --nile-txt-primary: #fafafa;
+  --nile-txt-secondary: #a1a1aa;
+  --nile-txt-tertiary: #71717a;
+
+  /* Borders */
+  --nile-border: #3f3f46;
+  --nile-border-strong: #52525b;
+
+  /* Accent / vibrant */
+  --nile-volt: #c8ff00; /* primary CTA — black text on top */
+  --nile-coral: #ff4d6d; /* live / urgent */
+  --nile-azure: #00b4ff; /* info / links */
+  --nile-violet: #8b5cf6; /* creator / premium */
+  --nile-amber: #ffb800; /* rewards */
+
+  /* Semantic */
+  --nile-success: #22c55e;
+  --nile-warning: #f59e0b;
+  --nile-error: #ef4444;
+
+  /* On-accent text */
+  --nile-on-volt: #0a0a0a;
+
+  /* Radii */
+  --nile-r-xs: 4px;
+  --nile-r-sm: 8px;
+  --nile-r-md: 12px;
+  --nile-r-lg: 20px;
+  --nile-r-xl: 28px;
+  --nile-r-pill: 999px;
+
+  /* Spacing (4px base) */
+  --nile-s-1: 4px;
+  --nile-s-2: 8px;
+  --nile-s-3: 12px;
+  --nile-s-4: 16px;
+  --nile-s-5: 20px;
+  --nile-s-6: 24px;
+  --nile-s-8: 32px;
+  --nile-s-10: 40px;
+  --nile-s-12: 48px;
+  --nile-s-16: 64px;
+  --nile-s-20: 80px;
+
+  /* Type families */
+  --nile-font-display: "Syne", system-ui, sans-serif;
+  --nile-font-body: "Outfit", system-ui, sans-serif;
+
+  /* Layout */
+  --nile-max-width: 1120px;
+  --nile-max-width-prose: 680px;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+/* Lock scroll while the mobile nav menu is open. */
+body.nav-open {
+  overflow: hidden;
+}
+
+body {
+  margin: 0;
+  background: var(--nile-bg-page);
+  color: var(--nile-txt-primary);
+  font-family: var(--nile-font-body);
+  font-weight: 400;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--nile-font-display);
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  margin: 0 0 var(--nile-s-4);
+}
+
+h1 {
+  font-size: clamp(2.5rem, 6vw, 4.5rem);
+  font-weight: 800;
+}
+h2 {
+  font-size: clamp(1.75rem, 4vw, 2.75rem);
+}
+h3 {
+  font-size: clamp(1.25rem, 2.5vw, 1.75rem);
+}
+
+p {
+  margin: 0 0 var(--nile-s-4);
+}
+
+a {
+  color: var(--nile-azure);
+  text-decoration: none;
+}
+a:hover {
+  text-decoration: underline;
+}
+
+img {
+  max-width: 100%;
+  display: block;
+}
+
+/* ---- Reusable primitives ---- */
+
+/* Grid/flex children default to min-width:auto, which lets long content (big
+   display headings, media) push a track wider than its container's max-width —
+   making sections appear full-bleed. Reset it so tracks honor their container. */
+.nile-container > * {
+  min-width: 0;
+}
+
+.nile-container {
+  width: 100%;
+  max-width: var(--nile-max-width);
+  margin-inline: auto;
+  padding-inline: var(--nile-s-6);
+}
+
+.nile-section {
+  padding-block: var(--nile-s-16);
+}
+
+/* ---- Automatic zebra striping ----
+   Hero is always the first <section> and stays page-black. Every even
+   section after it gets the surface tint with hairline borders, every odd
+   section stays black — guaranteeing alternation on every page regardless
+   of how many sections exist. Driven structurally so pages never need to
+   hand-tag backgrounds (and can't get the rhythm wrong). */
+main > .nile-section:nth-of-type(even) {
+  background: var(--nile-bg-surface);
+  border-block: 1px solid var(--nile-border);
+}
+/* Collapse the doubled hairline where two bordered/black sections meet. */
+main > .nile-section:nth-of-type(even) + .nile-section:nth-of-type(odd) {
+  border-top: none;
+}
+
+/* Primary CTA: Volt bg, black text, pill */
+.nile-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--nile-s-2);
+  font-family: var(--nile-font-body);
+  font-weight: 600;
+  font-size: 1rem;
+  padding: var(--nile-s-3) var(--nile-s-6);
+  border-radius: var(--nile-r-pill);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: transform 0.15s ease, filter 0.15s ease;
+  text-decoration: none;
+}
+.nile-btn:hover {
+  text-decoration: none;
+  transform: translateY(-1px);
+}
+
+.nile-btn--primary {
+  background: var(--nile-volt);
+  color: var(--nile-on-volt);
+}
+.nile-btn--primary:hover {
+  filter: brightness(1.05);
+}
+
+.nile-btn--secondary {
+  background: transparent;
+  color: var(--nile-txt-primary);
+  border-color: var(--nile-border);
+}
+.nile-btn--secondary:hover {
+  border-color: var(--nile-border-strong);
+}
+
+/* Live badge */
+.nile-badge-live {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--nile-s-1);
+  background: var(--nile-coral);
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 2px var(--nile-s-2);
+  border-radius: var(--nile-r-pill);
+}
+
+/* Card */
+.nile-card {
+  background: var(--nile-bg-surface);
+  border: 1px solid var(--nile-border);
+  border-radius: var(--nile-r-lg);
+  padding: var(--nile-s-6);
+}
+
+.nile-eyebrow {
+  font-family: var(--nile-font-body);
+  font-weight: 600;
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--nile-volt);
+  margin-bottom: var(--nile-s-2);
+}
+
+.nile-lead {
+  font-size: 1.15rem;
+  color: var(--nile-txt-secondary);
+  max-width: var(--nile-max-width-prose);
+}

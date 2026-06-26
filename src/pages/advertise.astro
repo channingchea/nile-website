@@ -1,0 +1,311 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import ImageSlot from "../components/ImageSlot.astro";
+
+const title = "Advertise to Engaged Live Audiences | Self-Serve Ads | Nile";
+const description =
+  "Reach niche, paying audiences inside live events. Run in-stream ads or boost an event with a self-serve portal — no minimum spend, no media buyer required.";
+
+const formats = [
+  {
+    icon: "play_circle",
+    name: "In-Stream Ads",
+    body: "Your ad runs during a live Nile event, in front of an audience that's already locked in. Set your budget, choose your audience, and go. No minimum spend, no agency needed.",
+  },
+  {
+    icon: "rocket_launch",
+    name: "Event Boosts",
+    body: "Help a specific event reach more people before it goes live. Boosts put the event in front of Nile users who match the audience profile — ideal if you're a venue, sponsor, or brand already associated with a show.",
+  },
+];
+
+const audiences = [
+  "Music fans",
+  "Worship communities",
+  "Gaming audiences",
+  "Independent sports",
+  "Fitness & wellness",
+  "Creative communities",
+];
+---
+
+<BaseLayout title={title} description={description} canonical="/advertise">
+  <!-- HERO -->
+  <section class="hero nile-section">
+    <div class="nile-container hero-inner">
+      <p class="nile-eyebrow">Advertise on Nile</p>
+      <h1>Your ad. Their passion.</h1>
+      <p class="nile-lead hero-lead">
+        Nile audiences are niche, engaged, and paying attention. Reach the
+        exact crowd that cares about what you sell — no media buyer required.
+      </p>
+      <div class="hero-cta">
+        <button
+          type="button"
+          data-waitlist
+          data-segment="advertiser"
+          class="nile-btn nile-btn--primary"
+        >
+          Open the Ad Portal →
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- THE AUDIENCE SECTION -->
+  <section class="band nile-section">
+    <div class="nile-container split">
+      <div class="split-head">
+        <p class="nile-eyebrow">The audience</p>
+        <h2>These aren't casual scrollers.</h2>
+        <p class="seo-h2">Advertise to engaged, paying live-event audiences</p>
+      </div>
+      <div class="split-body">
+        <p>
+          People on Nile bought a ticket to be there. They chose the show, they
+          paid for it, and they're watching. That's a different level of
+          attention than someone passively browsing a feed.
+        </p>
+        <p>
+          Nile events draw tight, passionate communities. When your ad runs
+          inside one of those experiences, it's not background noise.
+        </p>
+        <div class="audience-grid">
+          {audiences.map((a) => <span class="audience-chip">{a}</span>)}
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- THE FORMATS SECTION -->
+  <section class="nile-section band">
+    <div class="nile-container">
+      <div class="centered-head">
+        <p class="nile-eyebrow">Ad formats</p>
+        <h2>Two ways to reach them.</h2>
+      </div>
+      <div class="formats">
+        {
+          formats.map((f) => (
+            <div class="format-card nile-card">
+              <span class="material-symbols-rounded format-icon">{f.icon}</span>
+              <h3>{f.name}</h3>
+              <p>{f.body}</p>
+            </div>
+          ))
+        }
+      </div>
+    </div>
+  </section>
+
+  <!-- SELF-SERVE SECTION -->
+  <section class="band nile-section">
+    <div class="nile-container self-serve-grid">
+      <div class="self-serve-copy">
+        <p class="nile-eyebrow">Self-serve</p>
+        <h2>Set it up yourself in minutes.</h2>
+        <p>
+          The Nile ad portal is built for business owners, not media buyers. Set
+          your budget, pick your audience category, choose your dates, and
+          launch. No calls, no contracts, no minimums.
+        </p>
+        <p>
+          If you want to start small and see how it performs, that's exactly
+          what it's designed for.
+        </p>
+        <div class="self-serve-steps">
+          {
+            [
+              "Set your budget",
+              "Pick your audience",
+              "Choose your dates",
+              "Launch",
+            ].map((step, i) => (
+              <div class="ss-step">
+                <span class="ss-num">{i + 1}</span>
+                <span class="ss-label">{step}</span>
+              </div>
+            ))
+          }
+        </div>
+      </div>
+      <ImageSlot
+        label="ad portal screenshot"
+        radius="lg"
+        ratio="4 / 3"
+        class="portal-visual"
+      />
+    </div>
+  </section>
+
+  <!-- CLOSING CTA -->
+  <section class="closing nile-section">
+    <div class="nile-container closing-inner">
+      <h2>Ready to reach a real audience?</h2>
+      <p class="closing-sub">
+        Open the self-serve portal and launch your first campaign today.
+      </p>
+      <button
+        type="button"
+        data-waitlist
+        data-segment="advertiser"
+        class="nile-btn nile-btn--primary closing-btn"
+      >
+        Open the Ad Portal →
+      </button>
+      <a href="/faq#advertisers" class="secondary-link">
+        Questions? Read the FAQ →
+      </a>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  h2 {
+    margin-bottom: var(--nile-s-2);
+  }
+  .seo-h2 {
+    color: var(--nile-txt-tertiary);
+    font-size: 0.95rem;
+    margin-bottom: var(--nile-s-4);
+  }
+  /* Section backgrounds are handled by automatic zebra striping in brand.css. */
+  .centered-head {
+    text-align: center;
+    margin-bottom: var(--nile-s-12);
+  }
+  .centered-head h2 {
+    margin-bottom: 0;
+  }
+
+  /* Hero — centered */
+  .hero {
+    padding-block: var(--nile-s-16) var(--nile-s-12);
+    text-align: center;
+  }
+  .hero-inner {
+    max-width: 720px;
+  }
+  .hero-lead {
+    margin-bottom: 0;
+  }
+  .hero-cta {
+    margin-top: var(--nile-s-8);
+    display: flex;
+    justify-content: center;
+  }
+
+  /* Split */
+  .split {
+    display: grid;
+    grid-template-columns: 1fr 1.4fr;
+    gap: var(--nile-s-12);
+    align-items: start;
+  }
+  .split-head h2 {
+    margin-bottom: 0;
+  }
+  .split-body p {
+    color: var(--nile-txt-secondary);
+  }
+  .audience-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--nile-s-2);
+    margin-top: var(--nile-s-4);
+  }
+  .audience-chip {
+    border: 1px solid var(--nile-border);
+    border-radius: var(--nile-r-pill);
+    padding: var(--nile-s-1) var(--nile-s-3);
+    font-size: 0.85rem;
+    color: var(--nile-txt-secondary);
+  }
+
+  /* Formats */
+  .formats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--nile-s-6);
+  }
+  .format-icon {
+    font-family: "Material Symbols Rounded", sans-serif;
+    font-size: 1.75rem;
+    color: var(--nile-volt);
+    display: block;
+    margin-bottom: var(--nile-s-3);
+  }
+  .format-card h3 {
+    margin-bottom: var(--nile-s-2);
+  }
+  .format-card p {
+    color: var(--nile-txt-secondary);
+    font-size: 0.95rem;
+    margin: 0;
+  }
+
+  /* Self-serve */
+  .self-serve-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--nile-s-12);
+    align-items: center;
+  }
+  .self-serve-copy p {
+    color: var(--nile-txt-secondary);
+  }
+  .self-serve-steps {
+    display: flex;
+    flex-direction: column;
+    gap: var(--nile-s-3);
+    margin-top: var(--nile-s-6);
+  }
+  .ss-step {
+    display: flex;
+    align-items: center;
+    gap: var(--nile-s-3);
+  }
+  .ss-num {
+    width: 28px;
+    height: 28px;
+    display: grid;
+    place-items: center;
+    background: var(--nile-volt);
+    color: var(--nile-on-volt);
+    font-weight: 700;
+    font-size: 0.85rem;
+    border-radius: var(--nile-r-pill);
+    flex: 0 0 auto;
+  }
+  .ss-label {
+    font-weight: 500;
+  }
+
+  /* Closing */
+  .closing-inner {
+    text-align: center;
+    max-width: 600px;
+  }
+  .closing-sub {
+    color: var(--nile-txt-secondary);
+    margin-bottom: var(--nile-s-6);
+  }
+  .closing-btn {
+    margin-bottom: var(--nile-s-4);
+  }
+  .secondary-link {
+    display: block;
+    color: var(--nile-volt);
+    font-weight: 600;
+    font-size: 0.9rem;
+  }
+
+  @media (max-width: 880px) {
+    .split,
+    .formats,
+    .self-serve-grid {
+      grid-template-columns: 1fr;
+      gap: var(--nile-s-8);
+    }
+  }
+</style>

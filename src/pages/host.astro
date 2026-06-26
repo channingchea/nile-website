@@ -1,0 +1,539 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import ImageSlot from "../components/ImageSlot.astro";
+
+// SEO pulled from website_copy_host.md metadata block.
+const title = "Host & Monetize Live Events | Sell Virtual Tickets | Nile";
+const description =
+  "Turn any live event into a ticketed stream. Sell virtual tickets, broadcast multiple phone camera angles, and earn from live shows and replays. Payouts via Stripe.";
+
+const steps = [
+  {
+    n: 1,
+    title: "Create your event",
+    body: "Name it, describe it, set a date. Upload a cover image if you have one.",
+  },
+  {
+    n: 2,
+    title: "Set your ticket price",
+    body: "You decide what your show is worth. There are no free events on Nile — every show is a ticketed experience.",
+  },
+  {
+    n: 3,
+    title: "Go live",
+    body: "Open the app, assign your cameras, and start the show. Your audience joins from the app or any web browser.",
+  },
+  {
+    n: 4,
+    title: "Get paid",
+    body: "Revenue from ticket sales and replay purchases lands in your account. Payouts go through Stripe.",
+  },
+];
+
+const proofShows = [
+  { label: "set", meta: "Late-night set · 3 angles" },
+  { label: "workshop", meta: "Sold-out workshop" },
+  { label: "service", meta: "Sunday service" },
+];
+---
+
+<BaseLayout title={title} description={description} canonical="/host">
+  <!-- ② HERO -->
+  <section class="hero nile-section">
+    <div class="nile-container hero-grid">
+      <div class="hero-copy">
+        <p class="nile-eyebrow">For Hosts</p>
+        <h1>Your show. Your revenue. Your crew.</h1>
+        <p class="nile-lead">
+          Nile turns any live event into a ticketed streaming experience. If you
+          have a phone, you have a camera. If you have an audience, you have a
+          revenue stream.
+        </p>
+        <div class="hero-cta">
+          <button
+            type="button"
+            data-waitlist
+            data-segment="host"
+            class="nile-btn nile-btn--primary"
+          >
+            Start Hosting →
+          </button>
+          <span class="cta-note">opens waitlist</span>
+        </div>
+      </div>
+      <ImageSlot
+        label="host streaming · multi-angle"
+        radius="lg"
+        ratio="4 / 3"
+        class="hero-visual"
+      />
+    </div>
+  </section>
+
+  <!-- ③ REVENUE ARGUMENT -->
+  <section class="band nile-section">
+    <div class="nile-container split">
+      <div class="split-head">
+        <p class="nile-eyebrow">The revenue argument</p>
+        <h2>Stop leaving money on the floor.</h2>
+        <p class="seo-h2">How to monetize a live event with virtual tickets</p>
+      </div>
+      <div class="split-body">
+        <p>
+          Every seat in your venue has a price. The ones you can't fill don't
+          have to go unsold. Nile lets you sell virtual tickets to the same show
+          you're already running, to an audience that has no size limit.
+        </p>
+        <p>
+          Live ticket buyers get the replay included. Everyone who missed the
+          show can buy replay access after the fact. That's ticket revenue
+          before, during, and after the event.
+        </p>
+        <div class="revenue-card nile-card">
+          <span class="revenue-figure">~50%</span>
+          <p>
+            After platform costs, you keep roughly 50% of net revenue. No
+            guesswork, no rev share buried in the fine print.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ④ THE SETUP -->
+  <section class="nile-section">
+    <div class="nile-container setup-grid">
+      <div class="setup-copy">
+        <p class="nile-eyebrow">The setup</p>
+        <h2>If you have a phone, you're ready.</h2>
+        <p class="seo-h2">
+          Multi-camera live streaming from phones — no production crew
+        </p>
+        <p>
+          There's no minimum equipment requirement on Nile. A few phones mounted
+          on stands is a Nile show. Add more phones for more angles, bring a crew
+          of two friends, or go bigger with a full team. The platform meets you
+          where you are. Either way, your audience gets multiple angles they can
+          choose between, live.
+        </p>
+      </div>
+      <div class="angle-row">
+        <ImageSlot label="angle 1" radius="md" ratio="3 / 4" />
+        <ImageSlot label="angle 2" radius="md" ratio="3 / 4" />
+        <ImageSlot label="angle 3" radius="md" ratio="3 / 4" />
+      </div>
+    </div>
+  </section>
+
+  <!-- ⑤ HOW HOSTING WORKS -->
+  <section class="band nile-section">
+    <div class="nile-container">
+      <div class="centered-head">
+        <p class="nile-eyebrow">How hosting works</p>
+        <h2>Four steps from idea to income.</h2>
+      </div>
+      <div class="steps">
+        {
+          steps.map((s) => (
+            <div class="step nile-card">
+              <span class="step-num">{s.n}</span>
+              <h3>{s.title}</h3>
+              <p>{s.body}</p>
+            </div>
+          ))
+        }
+      </div>
+    </div>
+  </section>
+
+  <!-- ⑥ VOD / REPLAYS -->
+  <section class="nile-section">
+    <div class="nile-container vod-grid">
+      <ImageSlot
+        label="replay player"
+        radius="lg"
+        ratio="16 / 9"
+        class="vod-visual"
+      />
+      <div class="vod-copy">
+        <p class="nile-eyebrow">Replays / VOD</p>
+        <h2>The show keeps earning after it ends.</h2>
+        <p>
+          Every Nile event generates a replay automatically. Live ticket buyers
+          get access included. Anyone who finds you after the fact can buy the
+          replay at whatever price you set.
+        </p>
+        <p>
+          A late-night set. A sold-out workshop. A one-time performance. They all
+          keep working for you after the stream goes offline.
+        </p>
+        <div class="chips">
+          <span class="chip">late-night set</span>
+          <span class="chip">sold-out workshop</span>
+          <span class="chip">one-time show</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ⑦ PROOF -->
+  <section class="band nile-section">
+    <div class="nile-container">
+      <div class="centered-head">
+        <p class="nile-eyebrow">Proof</p>
+        <h2>Hosts are already getting paid.</h2>
+      </div>
+      <div class="proof-grid">
+        <div class="testimonial nile-card">
+          <div class="testimonial-author">
+            <span class="avatar"></span>
+            <div class="author-lines">
+              <span class="line line--wide"></span>
+              <span class="line"></span>
+            </div>
+          </div>
+          <p class="quote">
+            “Host testimonial quote — placeholder. Real host quotes and earnings
+            figures drop in here post-launch.”
+          </p>
+        </div>
+        <div class="earnings">
+          <p class="earnings-label">Earnings strip — show types now running</p>
+          <div class="earnings-row">
+            {
+              proofShows.map((s) => (
+                <div class="earnings-card nile-card">
+                  <ImageSlot label={s.label} radius="sm" ratio="16 / 9" />
+                  <span class="earnings-meta">{s.meta}</span>
+                  <span class="earnings-figure">$ —</span>
+                </div>
+              ))
+            }
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ⑧ RELIABILITY -->
+  <section class="nile-section reliability">
+    <div class="nile-container">
+      <p class="nile-eyebrow">Reliability</p>
+      <h2>Stake your reputation on it.</h2>
+      <p class="reliability-body">
+        Bad internet happens. Nile is built around it. If a host drops mid-show,
+        they can rejoin without ending the stream. If a viewer loses connection,
+        they pick back up where they left off. The show doesn't stop because
+        someone's signal did.
+      </p>
+    </div>
+  </section>
+
+  <!-- ⑨ CLOSING CTA -->
+  <section class="closing nile-section">
+    <div class="nile-container closing-inner">
+      <h2>Your next show starts here.</h2>
+      <p class="closing-sub">
+        Download the Nile app and set up your first event in minutes. Join the
+        waitlist and we'll get you ready to host.
+      </p>
+      <button
+        type="button"
+        data-waitlist
+        data-segment="host"
+        class="nile-btn nile-btn--primary closing-btn"
+      >
+        Join the waitlist →
+      </button>
+      <a href="/faq" class="faq-link">Questions? Read the FAQ →</a>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  h2 {
+    margin-bottom: var(--nile-s-2);
+  }
+  .seo-h2 {
+    color: var(--nile-txt-tertiary);
+    font-size: 0.95rem;
+    margin-bottom: var(--nile-s-4);
+  }
+  /* Section backgrounds are handled by automatic zebra striping in brand.css. */
+  .centered-head {
+    text-align: center;
+    margin-bottom: var(--nile-s-12);
+  }
+  .centered-head h2 {
+    margin-bottom: 0;
+  }
+
+  /* ② Hero */
+  .hero {
+    padding-block: var(--nile-s-16) var(--nile-s-12);
+  }
+  .hero-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--nile-s-12);
+    align-items: center;
+  }
+  .hero-cta {
+    display: flex;
+    gap: var(--nile-s-3);
+    align-items: center;
+    margin-top: var(--nile-s-8);
+  }
+  .cta-note {
+    color: var(--nile-txt-tertiary);
+    font-size: 0.8rem;
+  }
+
+  /* ③ Revenue */
+  .split {
+    display: grid;
+    grid-template-columns: 1fr 1.4fr;
+    gap: var(--nile-s-12);
+    align-items: start;
+  }
+  .split-head h2 {
+    margin-bottom: 0;
+  }
+  .split-body p {
+    color: var(--nile-txt-secondary);
+  }
+  .revenue-card {
+    display: flex;
+    align-items: center;
+    gap: var(--nile-s-4);
+    margin-top: var(--nile-s-6);
+  }
+  .revenue-figure {
+    font-family: var(--nile-font-display);
+    font-weight: 800;
+    font-size: 2.75rem;
+    color: var(--nile-volt);
+    line-height: 1;
+    flex: 0 0 auto;
+  }
+  .revenue-card p {
+    margin: 0;
+    color: var(--nile-txt-secondary);
+    font-size: 0.95rem;
+  }
+
+  /* ④ Setup */
+  .setup-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--nile-s-12);
+    align-items: center;
+  }
+  .setup-copy p:last-child {
+    color: var(--nile-txt-secondary);
+  }
+  .angle-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--nile-s-3);
+  }
+
+  /* ⑤ Steps */
+  .steps {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--nile-s-4);
+  }
+  .step-num {
+    width: 32px;
+    height: 32px;
+    display: grid;
+    place-items: center;
+    background: var(--nile-volt);
+    color: var(--nile-on-volt);
+    font-weight: 700;
+    border-radius: var(--nile-r-pill);
+    margin-bottom: var(--nile-s-4);
+  }
+  .step h3 {
+    font-size: 1.15rem;
+    margin-bottom: var(--nile-s-2);
+  }
+  .step p {
+    color: var(--nile-txt-secondary);
+    font-size: 0.9rem;
+    margin: 0;
+  }
+
+  /* ⑥ VOD */
+  .vod-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--nile-s-12);
+    align-items: center;
+  }
+  .vod-copy p {
+    color: var(--nile-txt-secondary);
+  }
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--nile-s-2);
+    margin-top: var(--nile-s-4);
+  }
+  .chip {
+    border: 1px solid var(--nile-border);
+    border-radius: var(--nile-r-pill);
+    padding: var(--nile-s-1) var(--nile-s-3);
+    font-size: 0.85rem;
+    color: var(--nile-txt-secondary);
+  }
+
+  /* ⑦ Proof */
+  .proof-grid {
+    display: grid;
+    grid-template-columns: 1.1fr 1.4fr;
+    gap: var(--nile-s-6);
+    align-items: stretch;
+  }
+  .testimonial {
+    display: flex;
+    flex-direction: column;
+  }
+  .testimonial-author {
+    display: flex;
+    align-items: center;
+    gap: var(--nile-s-3);
+  }
+  .avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: var(--nile-r-pill);
+    background: var(--nile-bg-raised);
+    border: 1px solid var(--nile-border);
+    flex: 0 0 auto;
+  }
+  .author-lines {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .line {
+    display: block;
+    height: 8px;
+    width: 70px;
+    border-radius: var(--nile-r-xs);
+    background: var(--nile-bg-raised);
+  }
+  .line--wide {
+    width: 110px;
+  }
+  .quote {
+    margin: var(--nile-s-4) 0 0;
+    color: var(--nile-txt-secondary);
+    font-style: italic;
+  }
+  .earnings {
+    display: flex;
+    flex-direction: column;
+  }
+  .earnings-label {
+    font-size: 0.7rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--nile-txt-tertiary);
+    margin-bottom: var(--nile-s-3);
+  }
+  .earnings-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--nile-s-3);
+    align-items: start;
+  }
+  .earnings-card {
+    display: flex;
+    flex-direction: column;
+    padding: var(--nile-s-3);
+  }
+  .earnings-meta {
+    display: block;
+    color: var(--nile-txt-secondary);
+    font-size: 0.8rem;
+    margin-top: var(--nile-s-2);
+  }
+  .earnings-figure {
+    display: block;
+    font-family: var(--nile-font-display);
+    font-weight: 800;
+    font-size: 1.1rem;
+    margin-top: var(--nile-s-1);
+  }
+
+  /* ⑧ Reliability */
+  .reliability {
+    text-align: center;
+  }
+  .reliability h2 {
+    margin-bottom: var(--nile-s-2);
+  }
+  .reliability-body {
+    color: var(--nile-txt-secondary);
+    max-width: 600px;
+    margin-inline: auto;
+  }
+
+  /* ⑨ Closing */
+  .closing-inner {
+    text-align: center;
+    max-width: 600px;
+  }
+  .closing-sub {
+    color: var(--nile-txt-secondary);
+    margin-bottom: var(--nile-s-6);
+  }
+  .closing-btn {
+    margin-bottom: var(--nile-s-4);
+  }
+  .faq-link {
+    display: block;
+    color: var(--nile-volt);
+    font-weight: 600;
+    font-size: 0.9rem;
+  }
+
+  /* ---- Responsive ---- */
+  @media (max-width: 880px) {
+    .hero-grid,
+    .split,
+    .setup-grid,
+    .vod-grid,
+    .proof-grid {
+      grid-template-columns: 1fr;
+      gap: var(--nile-s-8);
+    }
+    .steps {
+      grid-template-columns: 1fr 1fr;
+    }
+    /* VOD: copy above the player on mobile (wireframe order) */
+    .vod-copy {
+      order: -1;
+    }
+    .hero-cta {
+      flex-direction: column;
+      align-items: stretch;
+    }
+    .hero-cta .nile-btn {
+      justify-content: center;
+    }
+    .cta-note {
+      text-align: center;
+    }
+  }
+
+  @media (max-width: 520px) {
+    .steps,
+    .earnings-row {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

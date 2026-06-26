@@ -1,0 +1,393 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import ImageSlot from "../components/ImageSlot.astro";
+
+const title = "Live Stream Your Church Service Online | For Worship | Nile";
+const description =
+  "Stream your church service to members who can't be in the room. Multiple camera angles from phones, no app required to watch, and digital giving built in.";
+---
+
+<BaseLayout title={title} description={description} canonical="/worship">
+  <!-- HERO -->
+  <section class="hero nile-section">
+    <div class="nile-container hero-grid">
+      <div class="hero-copy">
+        <p class="nile-eyebrow">For Worship</p>
+        <h1>Every member, present.</h1>
+        <p class="nile-lead">
+          Nile helps your congregation reach the people who can't be in the
+          room. Members who moved away, elderly congregants, families abroad.
+          They can all be part of the service.
+        </p>
+        <div class="hero-cta">
+          <button
+            type="button"
+            data-waitlist
+            data-segment="worship"
+            class="nile-btn nile-btn--primary"
+          >
+            Bring Your Community Online →
+          </button>
+          <span class="cta-note">opens waitlist</span>
+        </div>
+      </div>
+      <ImageSlot
+        label="church service stream"
+        radius="lg"
+        ratio="4 / 3"
+        class="hero-visual"
+      />
+    </div>
+  </section>
+
+  <!-- REACH SECTION -->
+  <section class="band nile-section">
+    <div class="nile-container split">
+      <div class="split-head">
+        <p class="nile-eyebrow">Reach</p>
+        <h2>Distance shouldn't mean absence.</h2>
+        <p class="seo-h2">How to live stream your church service online</p>
+      </div>
+      <div class="split-body">
+        <p>
+          Your congregation is bigger than your building. There are members who
+          moved across the country, people who can't travel, missionaries
+          serving abroad, and homebound members who haven't been in a pew in
+          years.
+        </p>
+        <p>
+          Nile lets them join your service live, from any device. No app
+          download required. A browser is all they need.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- SETUP SECTION -->
+  <section class="nile-section">
+    <div class="nile-container setup-grid">
+      <div class="setup-copy">
+        <p class="nile-eyebrow">The setup</p>
+        <h2>Your existing team can run this.</h2>
+        <p>
+          If your church already has a basic A/V setup, you're ready. A couple
+          of phones covering different angles of the service is all it takes to
+          get started. No outside production crew. No expensive equipment. Just
+          your team doing what they already do.
+        </p>
+        <p>
+          Want to show the worship band up close, the speaker at the pulpit, and
+          the full room? Nile broadcasts all of those angles simultaneously.
+          Your online congregation chooses what they want to see.
+        </p>
+      </div>
+      <div class="angle-row">
+        <ImageSlot label="worship band" radius="md" ratio="3 / 4" />
+        <ImageSlot label="pulpit view" radius="md" ratio="3 / 4" />
+        <ImageSlot label="full room" radius="md" ratio="3 / 4" />
+      </div>
+    </div>
+  </section>
+
+  <!-- GIVING SECTION -->
+  <section class="band nile-section">
+    <div class="nile-container giving-grid">
+      <div class="giving-copy">
+        <p class="nile-eyebrow">Digital giving</p>
+        <h2>Online attendance can support your ministry.</h2>
+        <p class="seo-h2">Digital giving for online church attendance</p>
+        <p>
+          Nile is built around ticketed events, which gives your church a way to
+          offer online access with a suggested contribution rather than streaming
+          for free. Think of it as digital giving for digital attendance.
+        </p>
+        <p>
+          The amount is yours to set. If it doesn't fit your community's
+          culture, the price can be kept minimal. But for special services,
+          conferences, or events, a ticket model gives you a sustainable way to
+          extend your reach.
+        </p>
+      </div>
+      <div class="giving-card nile-card">
+        <span class="giving-icon">🙏</span>
+        <h3>Digital attendance, digital offering</h3>
+        <p>
+          Set a ticket price, a suggested contribution, or keep it minimal.
+          Every configuration is yours to control.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- RELIABILITY SECTION -->
+  <section class="nile-section reliability">
+    <div class="nile-container">
+      <p class="nile-eyebrow">Reliability</p>
+      <h2>Services that run without hiccups.</h2>
+      <p class="reliability-body">
+        Connections drop. Nile is built around that reality. If anyone loses
+        their signal mid-service, they rejoin where they left off. The stream
+        keeps going regardless. Your online members won't miss a moment because
+        of a bad connection.
+      </p>
+      <p class="reliability-body">
+        Every service also generates a replay automatically, so members who
+        missed the live broadcast can watch afterward.
+      </p>
+      <div class="reliability-chips">
+        <span class="chip">auto-replay</span>
+        <span class="chip">rejoin without interruption</span>
+        <span class="chip">browser-ready</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- PROOF -->
+  <section class="band nile-section">
+    <div class="nile-container">
+      <div class="centered-head">
+        <p class="nile-eyebrow">Proof</p>
+        <h2>Congregations are already gathering online.</h2>
+      </div>
+      <div class="testimonial nile-card testimonial-centered">
+        <div class="testimonial-author">
+          <span class="avatar"></span>
+          <div class="author-lines">
+            <span class="line line--wide"></span>
+            <span class="line"></span>
+          </div>
+        </div>
+        <p class="quote">
+          "Church testimonial — placeholder. Real quotes and member-reach
+          figures drop in here post-launch. When a pastor sees another church
+          reaching its scattered members, the path feels proven rather than
+          experimental."
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- CLOSING CTA -->
+  <section class="closing nile-section">
+    <div class="nile-container closing-inner">
+      <h2>Your congregation is waiting.</h2>
+      <p class="closing-sub">
+        Getting started takes minutes. No technical expertise required.
+      </p>
+      <button
+        type="button"
+        data-waitlist
+        data-segment="worship"
+        class="nile-btn nile-btn--primary closing-btn"
+      >
+        Join the waitlist →
+      </button>
+      <a href="/host" class="secondary-link">See how hosting works →</a>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  h2 {
+    margin-bottom: var(--nile-s-2);
+  }
+  .seo-h2 {
+    color: var(--nile-txt-tertiary);
+    font-size: 0.95rem;
+    margin-bottom: var(--nile-s-4);
+  }
+  /* Section backgrounds are handled by automatic zebra striping in brand.css. */
+  .centered-head {
+    text-align: center;
+    margin-bottom: var(--nile-s-12);
+  }
+  .centered-head h2 {
+    margin-bottom: 0;
+  }
+
+  /* Hero */
+  .hero {
+    padding-block: var(--nile-s-16) var(--nile-s-12);
+  }
+  .hero-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--nile-s-12);
+    align-items: center;
+  }
+  .hero-cta {
+    display: flex;
+    gap: var(--nile-s-3);
+    align-items: center;
+    margin-top: var(--nile-s-8);
+  }
+  .cta-note {
+    color: var(--nile-txt-tertiary);
+    font-size: 0.8rem;
+  }
+
+  /* Reach */
+  .split {
+    display: grid;
+    grid-template-columns: 1fr 1.4fr;
+    gap: var(--nile-s-12);
+    align-items: start;
+  }
+  .split-head h2 {
+    margin-bottom: 0;
+  }
+  .split-body p {
+    color: var(--nile-txt-secondary);
+  }
+
+  /* Setup */
+  .setup-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--nile-s-12);
+    align-items: center;
+  }
+  .setup-copy p {
+    color: var(--nile-txt-secondary);
+  }
+  .angle-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--nile-s-3);
+  }
+
+  /* Giving */
+  .giving-grid {
+    display: grid;
+    grid-template-columns: 1.3fr 1fr;
+    gap: var(--nile-s-12);
+    align-items: center;
+  }
+  .giving-copy p {
+    color: var(--nile-txt-secondary);
+  }
+  .giving-card {
+    text-align: center;
+    padding: var(--nile-s-8);
+  }
+  .giving-icon {
+    font-size: 2rem;
+    display: block;
+    margin-bottom: var(--nile-s-4);
+  }
+  .giving-card h3 {
+    margin-bottom: var(--nile-s-3);
+  }
+  .giving-card p {
+    color: var(--nile-txt-secondary);
+    font-size: 0.95rem;
+    margin: 0;
+  }
+
+  /* Reliability */
+  .reliability {
+    text-align: center;
+  }
+  .reliability h2 {
+    margin-bottom: var(--nile-s-2);
+  }
+  .reliability-body {
+    color: var(--nile-txt-secondary);
+    max-width: 600px;
+    margin-inline: auto;
+    margin-bottom: var(--nile-s-3);
+  }
+  .reliability-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--nile-s-2);
+    justify-content: center;
+    margin-top: var(--nile-s-6);
+  }
+  .chip {
+    border: 1px solid var(--nile-border);
+    border-radius: var(--nile-r-pill);
+    padding: var(--nile-s-1) var(--nile-s-3);
+    font-size: 0.85rem;
+    color: var(--nile-txt-secondary);
+  }
+
+  /* Proof */
+  .testimonial-centered {
+    max-width: 680px;
+    margin-inline: auto;
+  }
+  .testimonial-author {
+    display: flex;
+    align-items: center;
+    gap: var(--nile-s-3);
+  }
+  .avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: var(--nile-r-pill);
+    background: var(--nile-bg-raised);
+    border: 1px solid var(--nile-border);
+    flex: 0 0 auto;
+  }
+  .author-lines {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .line {
+    display: block;
+    height: 8px;
+    width: 70px;
+    border-radius: var(--nile-r-xs);
+    background: var(--nile-bg-raised);
+  }
+  .line--wide {
+    width: 110px;
+  }
+  .quote {
+    margin: var(--nile-s-4) 0 0;
+    color: var(--nile-txt-secondary);
+    font-style: italic;
+  }
+
+  /* Closing */
+  .closing-inner {
+    text-align: center;
+    max-width: 600px;
+  }
+  .closing-sub {
+    color: var(--nile-txt-secondary);
+    margin-bottom: var(--nile-s-6);
+  }
+  .closing-btn {
+    margin-bottom: var(--nile-s-4);
+  }
+  .secondary-link {
+    display: block;
+    color: var(--nile-volt);
+    font-weight: 600;
+    font-size: 0.9rem;
+  }
+
+  @media (max-width: 880px) {
+    .hero-grid,
+    .split,
+    .setup-grid,
+    .giving-grid,
+    .proof-grid {
+      grid-template-columns: 1fr;
+      gap: var(--nile-s-8);
+    }
+    .hero-cta {
+      flex-direction: column;
+      align-items: stretch;
+    }
+    .hero-cta .nile-btn {
+      justify-content: center;
+    }
+    .cta-note {
+      text-align: center;
+    }
+  }
+</style>

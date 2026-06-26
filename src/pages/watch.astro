@@ -1,0 +1,318 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import ImageSlot from "../components/ImageSlot.astro";
+
+const title = "Watch Live Events with Multiple Camera Angles | Nile";
+const description =
+  "Watch live shows your way — pick your camera angle, chat live, and catch on-demand replays. No app download required. Available on iOS, Android, and web.";
+
+const topics = [
+  "Music",
+  "Worship",
+  "Gaming",
+  "Sports",
+  "Fitness",
+  "Comedy",
+  "Podcasts",
+  "Art",
+];
+---
+
+<BaseLayout title={title} description={description} canonical="/watch">
+  <!-- HERO -->
+  <section class="hero nile-section">
+    <div class="nile-container hero-grid">
+      <div class="hero-copy">
+        <p class="nile-eyebrow">For Fans</p>
+        <h1>Watch like you're in the room.</h1>
+        <p class="nile-lead">
+          Nile is live events with multiple camera angles, live chat, and
+          on-demand replay. You're not just watching. You're choosing what to
+          watch.
+        </p>
+        <div class="hero-cta">
+          <button
+            type="button"
+            data-waitlist
+            data-segment="viewer"
+            class="nile-btn nile-btn--primary"
+          >
+            Download the App →
+          </button>
+          <a href="#" class="nile-btn nile-btn--secondary">Watch on Web</a>
+        </div>
+      </div>
+      <ImageSlot
+        label="viewer app · angle switcher + live chat"
+        radius="lg"
+        ratio="4 / 3"
+        class="hero-visual"
+      />
+    </div>
+  </section>
+
+  <!-- THE EXPERIENCE SECTION -->
+  <section class="band nile-section">
+    <div class="nile-container split">
+      <div class="split-head">
+        <p class="nile-eyebrow">The experience</p>
+        <h2>Your view. Your choice.</h2>
+        <p class="seo-h2">Watch live events with multiple camera angles</p>
+      </div>
+      <div class="split-body">
+        <p>
+          Every Nile event streams multiple camera angles at once. You pick the
+          one you want and switch whenever you feel like it. Close up on the
+          performer, wide shot of the room, the angle behind the kit. Nobody
+          else is deciding that for you.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOLLOW / FEED SECTION -->
+  <section class="nile-section">
+    <div class="nile-container feed-grid">
+      <div class="feed-copy">
+        <p class="nile-eyebrow">Your feed</p>
+        <h2>Your feed, your call.</h2>
+        <p>
+          When you sign up, you pick your topics — music, worship, sports,
+          gaming, whatever fits. That's all you'll see. No algorithm deciding
+          what's relevant. No content you didn't ask for. If your interests
+          change, go into Settings and update them anytime.
+        </p>
+      </div>
+      <div class="topics-cloud">
+        {
+          topics.map((t) => (
+            <span class="topic-chip">{t}</span>
+          ))
+        }
+      </div>
+    </div>
+  </section>
+
+  <!-- VOD SECTION -->
+  <section class="band nile-section">
+    <div class="nile-container vod-grid">
+      <ImageSlot
+        label="VOD replay screen"
+        radius="lg"
+        ratio="16 / 9"
+        class="vod-visual"
+      />
+      <div class="vod-copy">
+        <p class="nile-eyebrow">Replays</p>
+        <h2>Missed it live? You can still watch.</h2>
+        <p>
+          Every Nile event includes an on-demand replay. If you bought a live
+          ticket, you already have access. If you found out after the fact, you
+          can buy the replay anytime. The show doesn't disappear.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- NO APP SECTION -->
+  <section class="nile-section no-app">
+    <div class="nile-container no-app-inner">
+      <p class="nile-eyebrow">No barriers</p>
+      <h2>No download required.</h2>
+      <p class="no-app-body">
+        The Nile app gives you the full experience on your phone, but you don't
+        need it to watch. Open any browser, buy a ticket, and you're in.
+      </p>
+      <div class="platform-chips">
+        <span class="platform-chip">iOS App</span>
+        <span class="platform-chip">Android App</span>
+        <span class="platform-chip">Web Browser</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- DOWNLOAD CTA -->
+  <section class="closing nile-section">
+    <div class="nile-container closing-inner">
+      <h2>Get the full experience.</h2>
+      <p class="closing-sub">
+        Download the Nile app for iOS or Android, or watch on the web.
+      </p>
+      <div class="download-buttons">
+        <button
+          type="button"
+          data-waitlist
+          data-segment="viewer"
+          class="nile-btn nile-btn--primary"
+        >
+          Download on the App Store →
+        </button>
+        <button
+          type="button"
+          data-waitlist
+          data-segment="viewer"
+          class="nile-btn nile-btn--secondary"
+        >
+          Get it on Google Play →
+        </button>
+      </div>
+      <a href="#" class="web-link">Watch on Web →</a>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  h2 {
+    margin-bottom: var(--nile-s-2);
+  }
+  .seo-h2 {
+    color: var(--nile-txt-tertiary);
+    font-size: 0.95rem;
+    margin-bottom: var(--nile-s-4);
+  }
+  /* Section backgrounds are handled by automatic zebra striping in brand.css. */
+
+  /* Hero */
+  .hero {
+    padding-block: var(--nile-s-16) var(--nile-s-12);
+  }
+  .hero-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--nile-s-12);
+    align-items: center;
+  }
+  .hero-cta {
+    display: flex;
+    gap: var(--nile-s-3);
+    align-items: center;
+    margin-top: var(--nile-s-8);
+    flex-wrap: wrap;
+  }
+  /* Split */
+  .split {
+    display: grid;
+    grid-template-columns: 1fr 1.4fr;
+    gap: var(--nile-s-12);
+    align-items: start;
+  }
+  .split-head h2 {
+    margin-bottom: 0;
+  }
+  .split-body p {
+    color: var(--nile-txt-secondary);
+  }
+
+  /* Feed */
+  .feed-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--nile-s-12);
+    align-items: center;
+  }
+  .feed-copy p {
+    color: var(--nile-txt-secondary);
+  }
+  .topics-cloud {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--nile-s-3);
+    align-content: center;
+  }
+  .topic-chip {
+    border: 1px solid var(--nile-border);
+    border-radius: var(--nile-r-pill);
+    padding: var(--nile-s-2) var(--nile-s-4);
+    font-size: 0.95rem;
+    color: var(--nile-txt-secondary);
+    cursor: default;
+    transition: border-color 0.15s, color 0.15s;
+  }
+  .topic-chip:nth-child(odd) {
+    border-color: color-mix(in srgb, var(--nile-volt) 40%, transparent);
+    color: var(--nile-txt-primary);
+  }
+
+  /* VOD */
+  .vod-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--nile-s-12);
+    align-items: center;
+  }
+  .vod-copy p {
+    color: var(--nile-txt-secondary);
+  }
+
+  /* No app */
+  .no-app {
+    text-align: center;
+  }
+  .no-app-inner {
+    max-width: 600px;
+  }
+  .no-app-body {
+    color: var(--nile-txt-secondary);
+    margin-bottom: var(--nile-s-6);
+  }
+  .platform-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--nile-s-3);
+    justify-content: center;
+  }
+  .platform-chip {
+    border: 1px solid var(--nile-border);
+    border-radius: var(--nile-r-pill);
+    padding: var(--nile-s-2) var(--nile-s-5);
+    font-size: 0.9rem;
+    color: var(--nile-txt-secondary);
+  }
+
+  /* Closing */
+  .closing-inner {
+    text-align: center;
+    max-width: 600px;
+  }
+  .closing-sub {
+    color: var(--nile-txt-secondary);
+    margin-bottom: var(--nile-s-6);
+  }
+  .download-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: var(--nile-s-3);
+    align-items: center;
+    margin-bottom: var(--nile-s-4);
+  }
+  .download-buttons .nile-btn {
+    min-width: 260px;
+    justify-content: center;
+  }
+  .web-link {
+    display: block;
+    color: var(--nile-volt);
+    font-weight: 600;
+    font-size: 0.9rem;
+  }
+
+  @media (max-width: 880px) {
+    .hero-grid,
+    .split,
+    .feed-grid,
+    .vod-grid {
+      grid-template-columns: 1fr;
+      gap: var(--nile-s-8);
+    }
+    .vod-copy {
+      order: -1;
+    }
+    .hero-cta {
+      flex-direction: column;
+      align-items: stretch;
+    }
+    .hero-cta .nile-btn {
+      justify-content: center;
+    }
+  }
+</style>

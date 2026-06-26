@@ -1,0 +1,488 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import ImageSlot from "../components/ImageSlot.astro";
+
+const title = "Charge for Your Live Streams | Paid Streaming for Creators | Nile";
+const description =
+  "Keep streaming where you already are, then add Nile as your paid premium tier. Sell tickets to live streams, run multiple phone angles, and earn from replays.";
+
+const useCases = [
+  {
+    icon: "school",
+    title: "Workshops & masterclasses",
+    body: "Teach a paid, hands-on session live — screen-share, demo, and answer questions in real time.",
+  },
+  {
+    icon: "group",
+    title: "Intimate Q&As",
+    body: "Open an intimate room where your most engaged followers buy in to actually talk with you.",
+  },
+  {
+    icon: "rocket_launch",
+    title: "Live product launches",
+    body: "Drop a release live with ticketed early access, a countdown, and the crowd watching together.",
+  },
+];
+---
+
+<BaseLayout title={title} description={description} canonical="/creators">
+  <!-- HERO -->
+  <section class="hero nile-section">
+    <div class="nile-container hero-grid">
+      <div class="hero-copy">
+        <p class="nile-eyebrow">For Creators</p>
+        <h1>Free platforms built your audience. Nile helps you charge for it.</h1>
+        <p class="nile-lead">
+          Nile is your ticketed premium experience. Keep streaming where you
+          already stream. Add Nile for the content your audience will actually
+          pay for.
+        </p>
+        <div class="hero-cta">
+          <button
+            type="button"
+            data-waitlist
+            data-segment="creator"
+            class="nile-btn nile-btn--primary"
+          >
+            Start Your First Paid Stream →
+          </button>
+          <span class="cta-note">opens waitlist</span>
+        </div>
+      </div>
+      <ImageSlot
+        label="creator live stream setup"
+        radius="lg"
+        ratio="4 / 3"
+        class="hero-visual"
+      />
+    </div>
+  </section>
+
+  <!-- THE POSITIONING SECTION -->
+  <section class="band nile-section">
+    <div class="nile-container split">
+      <div class="split-head">
+        <p class="nile-eyebrow">Positioning</p>
+        <h2>Reach and revenue aren't the same thing.</h2>
+        <p class="seo-h2">How to charge for your live streams</p>
+      </div>
+      <div class="split-body">
+        <p>
+          Free platforms are great at getting eyes on your content. They're not
+          built to put money in your pocket from live streams. Ad revenue
+          trickles. Donations are optional. Subs take months to add up.
+        </p>
+        <p>
+          Nile is a different layer. You set a ticket price. Your audience buys
+          in. You go live. That's the whole model.
+        </p>
+        <div class="tier-card nile-card">
+          <div class="tier-row">
+            <div class="tier tier--free">
+              <span class="tier-label">Free platforms</span>
+              <span class="tier-desc">reach + discovery</span>
+            </div>
+            <span class="tier-plus">+</span>
+            <div class="tier tier--nile">
+              <span class="tier-label">Nile</span>
+              <span class="tier-desc">premium paid tier</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- WHAT TO STREAM -->
+  <section class="nile-section">
+    <div class="nile-container">
+      <div class="centered-head">
+        <p class="nile-eyebrow">What to stream</p>
+        <h2>Give them something worth paying for.</h2>
+        <p class="seo-h2 centered-seo">Multi-camera paid streaming from phones</p>
+      </div>
+      <div class="use-cases">
+        {
+          useCases.map((u) => (
+            <div class="use-case nile-card">
+              <span class="material-symbols-rounded use-case-icon">{u.icon}</span>
+              <h3>{u.title}</h3>
+              <p>{u.body}</p>
+            </div>
+          ))
+        }
+      </div>
+      <p class="experience-note">
+        A Nile stream broadcasts multiple phone angles simultaneously and your
+        audience picks their own view. Keyboard cam, room cam, over-the-shoulder,
+        wide shot — whatever fits your content. It's an experience that doesn't
+        exist on a free platform, which makes it easy to justify the price.
+      </p>
+    </div>
+  </section>
+
+  <!-- AUDIENCE SECTION -->
+  <section class="band nile-section">
+    <div class="nile-container split">
+      <div class="split-head">
+        <p class="nile-eyebrow">Your audience</p>
+        <h2>Your audience already supports you. This is the next step.</h2>
+      </div>
+      <div class="split-body">
+        <p>
+          If people are already subscribing, donating, or buying your merch,
+          they're telling you they'll pay for access. A ticketed live stream is
+          a natural next step for your most engaged fans, not a hard sell.
+        </p>
+        <p>
+          You're not asking them to pay for something they used to get free.
+          You're giving them something new.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- VOD SECTION -->
+  <section class="nile-section">
+    <div class="nile-container vod-grid">
+      <ImageSlot
+        label="replay player"
+        radius="lg"
+        ratio="16 / 9"
+        class="vod-visual"
+      />
+      <div class="vod-copy">
+        <p class="nile-eyebrow">Replays / VOD</p>
+        <h2>Every stream has a second life.</h2>
+        <p>
+          Live ticket buyers get the replay included. Anyone who missed the
+          stream can buy replay access after. A single session keeps earning
+          long after you close the app.
+        </p>
+        <div class="chips">
+          <span class="chip">live ticket sales</span>
+          <span class="chip">replay purchases</span>
+          <span class="chip">Stripe payouts</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SETUP SECTION -->
+  <section class="band nile-section">
+    <div class="nile-container setup-simple">
+      <div class="setup-copy">
+        <p class="nile-eyebrow">The setup</p>
+        <h2>A few phones. A crew of two. That's it.</h2>
+        <p>
+          You don't need a studio. Mount a few phones at different angles, bring
+          a friend or two to manage them, and you're streaming on Nile. The
+          platform handles the broadcast. You handle the show.
+        </p>
+      </div>
+      <ImageSlot
+        label="creator phone setup"
+        radius="lg"
+        ratio="16 / 9"
+        class="setup-visual"
+      />
+    </div>
+  </section>
+
+  <!-- PROOF -->
+  <section class="nile-section">
+    <div class="nile-container">
+      <div class="centered-head">
+        <p class="nile-eyebrow">Proof</p>
+        <h2>Creators are already charging — and getting paid.</h2>
+      </div>
+      <div class="testimonial nile-card testimonial-centered">
+        <div class="testimonial-author">
+          <span class="avatar"></span>
+          <div class="author-lines">
+            <span class="line line--wide"></span>
+            <span class="line"></span>
+          </div>
+        </div>
+        <p class="quote">
+          "Creator testimonial + earnings-per-stream figures — placeholder.
+          Real creators and paycheck numbers drop in here post-launch. Watching
+          a peer turn a stream into a paycheck is the strongest argument there
+          is."
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- CLOSING CTA -->
+  <section class="closing nile-section">
+    <div class="nile-container closing-inner">
+      <h2>Your audience is ready. Are you?</h2>
+      <p class="closing-sub">
+        Download the Nile app and set up your first paid stream today.
+      </p>
+      <button
+        type="button"
+        data-waitlist
+        data-segment="creator"
+        class="nile-btn nile-btn--primary closing-btn"
+      >
+        Join the waitlist →
+      </button>
+      <a href="/host" class="secondary-link">See how hosting works →</a>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  h2 {
+    margin-bottom: var(--nile-s-2);
+  }
+  .seo-h2 {
+    color: var(--nile-txt-tertiary);
+    font-size: 0.95rem;
+    margin-bottom: var(--nile-s-4);
+  }
+  .centered-seo {
+    text-align: center;
+  }
+  /* Section backgrounds are handled by automatic zebra striping in brand.css. */
+  .centered-head {
+    text-align: center;
+    margin-bottom: var(--nile-s-12);
+  }
+  .centered-head h2 {
+    margin-bottom: 0;
+  }
+
+  /* Hero */
+  .hero {
+    padding-block: var(--nile-s-16) var(--nile-s-12);
+  }
+  .hero-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--nile-s-12);
+    align-items: center;
+  }
+  .hero-cta {
+    display: flex;
+    gap: var(--nile-s-3);
+    align-items: center;
+    margin-top: var(--nile-s-8);
+  }
+  .cta-note {
+    color: var(--nile-txt-tertiary);
+    font-size: 0.8rem;
+  }
+
+  /* Split */
+  .split {
+    display: grid;
+    grid-template-columns: 1fr 1.4fr;
+    gap: var(--nile-s-12);
+    align-items: start;
+  }
+  .split-head h2 {
+    margin-bottom: 0;
+  }
+  .split-body p {
+    color: var(--nile-txt-secondary);
+  }
+
+  /* Tier card */
+  .tier-card {
+    margin-top: var(--nile-s-6);
+  }
+  .tier-row {
+    display: flex;
+    align-items: center;
+    gap: var(--nile-s-4);
+  }
+  .tier {
+    flex: 1;
+    padding: var(--nile-s-4);
+    border-radius: var(--nile-r-md);
+    text-align: center;
+  }
+  .tier--free {
+    background: var(--nile-bg-raised);
+    border: 1px solid var(--nile-border);
+  }
+  .tier--nile {
+    background: color-mix(in srgb, var(--nile-volt) 10%, transparent);
+    border: 1px solid var(--nile-volt);
+  }
+  .tier-label {
+    display: block;
+    font-weight: 700;
+    font-size: 0.95rem;
+    margin-bottom: 4px;
+  }
+  .tier-desc {
+    display: block;
+    color: var(--nile-txt-secondary);
+    font-size: 0.8rem;
+  }
+  .tier-plus {
+    font-size: 1.5rem;
+    color: var(--nile-txt-tertiary);
+    font-weight: 300;
+  }
+
+  /* Use cases */
+  .use-cases {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--nile-s-4);
+    margin-bottom: var(--nile-s-8);
+  }
+  .use-case-icon {
+    font-family: "Material Symbols Rounded", sans-serif;
+    font-size: 1.75rem;
+    color: var(--nile-volt);
+    display: block;
+    margin-bottom: var(--nile-s-3);
+  }
+  .use-case h3 {
+    font-size: 1.05rem;
+    margin-bottom: var(--nile-s-2);
+  }
+  .use-case p {
+    color: var(--nile-txt-secondary);
+    font-size: 0.9rem;
+    margin: 0;
+  }
+  .experience-note {
+    max-width: 680px;
+    margin-inline: auto;
+    color: var(--nile-txt-secondary);
+    text-align: center;
+    font-size: 0.95rem;
+  }
+
+  /* VOD */
+  .vod-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--nile-s-12);
+    align-items: center;
+  }
+  .vod-copy p {
+    color: var(--nile-txt-secondary);
+  }
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--nile-s-2);
+    margin-top: var(--nile-s-4);
+  }
+  .chip {
+    border: 1px solid var(--nile-border);
+    border-radius: var(--nile-r-pill);
+    padding: var(--nile-s-1) var(--nile-s-3);
+    font-size: 0.85rem;
+    color: var(--nile-txt-secondary);
+  }
+
+  /* Setup simple */
+  .setup-simple {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--nile-s-12);
+    align-items: center;
+  }
+  .setup-copy p {
+    color: var(--nile-txt-secondary);
+  }
+
+  /* Proof */
+  .testimonial-centered {
+    max-width: 680px;
+    margin-inline: auto;
+  }
+  .testimonial-author {
+    display: flex;
+    align-items: center;
+    gap: var(--nile-s-3);
+  }
+  .avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: var(--nile-r-pill);
+    background: var(--nile-bg-raised);
+    border: 1px solid var(--nile-border);
+    flex: 0 0 auto;
+  }
+  .author-lines {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .line {
+    display: block;
+    height: 8px;
+    width: 70px;
+    border-radius: var(--nile-r-xs);
+    background: var(--nile-bg-raised);
+  }
+  .line--wide {
+    width: 110px;
+  }
+  .quote {
+    margin: var(--nile-s-4) 0 0;
+    color: var(--nile-txt-secondary);
+    font-style: italic;
+  }
+
+  /* Closing */
+  .closing-inner {
+    text-align: center;
+    max-width: 600px;
+  }
+  .closing-sub {
+    color: var(--nile-txt-secondary);
+    margin-bottom: var(--nile-s-6);
+  }
+  .closing-btn {
+    margin-bottom: var(--nile-s-4);
+  }
+  .secondary-link {
+    display: block;
+    color: var(--nile-volt);
+    font-weight: 600;
+    font-size: 0.9rem;
+  }
+
+  @media (max-width: 880px) {
+    .hero-grid,
+    .split,
+    .vod-grid,
+    .setup-simple {
+      grid-template-columns: 1fr;
+      gap: var(--nile-s-8);
+    }
+    .use-cases {
+      grid-template-columns: 1fr;
+    }
+    .vod-copy {
+      order: -1;
+    }
+    .hero-cta {
+      flex-direction: column;
+      align-items: stretch;
+    }
+    .hero-cta .nile-btn {
+      justify-content: center;
+    }
+    .cta-note {
+      text-align: center;
+    }
+    .tier-row {
+      flex-direction: column;
+    }
+    .tier {
+      width: 100%;
+    }
+  }
+</style>

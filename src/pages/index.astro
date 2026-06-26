@@ -1,0 +1,530 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import ImageSlot from "../components/ImageSlot.astro";
+
+// SEO pulled from website_copy_homepage.md metadata block.
+const title = "Livestream & Sell Tickets to Your Live Events | Nile";
+const description =
+  "Nile is the live streaming platform built for ticketed events. Stream multiple camera angles from your phone, sell virtual tickets, and earn from live shows and on-demand replays.";
+
+const steps = [
+  {
+    n: 1,
+    img: "phone-rig setup",
+    title: "Set up your show",
+    body: "Create an event, set your ticket price, and invite your crew. Your phones are your cameras.",
+  },
+  {
+    n: 2,
+    img: "live multi-angle",
+    title: "Go live",
+    body: "Broadcast multiple camera angles simultaneously. Your audience picks their own view and watches from wherever they are, in the app or on the web.",
+  },
+  {
+    n: 3,
+    img: "earnings dashboard",
+    title: "Keep earning",
+    body: "Live ticket buyers get the replay free. Everyone else can buy access after. One show, multiple revenue windows.",
+  },
+];
+
+const audiences = [
+  {
+    name: "Musicians",
+    img: "artist on stage",
+    body: "It's your merch table, for the show itself. From intimate sets to sold-out venues, sell virtual tickets to fans who couldn't make it. Fretboard cam, drum overhead, wide stage — all from your existing setup.",
+    href: "/musicians",
+    link: "For Musicians →",
+  },
+  {
+    name: "Churches & Worship",
+    img: "worship service",
+    body: "Digital giving for digital attendance. Reach members who moved away, can't travel, or worship from abroad. No production crew needed. No app required to watch.",
+    href: "/worship",
+    link: "For Churches & Worship →",
+  },
+  {
+    name: "Creators & Streamers",
+    img: "creator streaming",
+    body: "The premium tier you couldn't offer on free platforms. Free platforms give you reach. Nile gives you revenue. Turn your audience into ticket buyers for your best content.",
+    href: "/creators",
+    link: "For Creators →",
+  },
+  {
+    name: "Any Live Event",
+    img: "comedy · sport · fitness",
+    body: "Sports, conferences, comedy, fitness, gaming. If people pay to be there in person, they'll pay to be there online.",
+    href: "/host",
+    link: "For Hosts →",
+  },
+];
+
+const features = [
+  { title: "Multiple angles", body: "See what the house cam misses." },
+  { title: "Live chat", body: "Watch with other fans in real time." },
+  {
+    title: "On-demand replay",
+    body: "The show lives on after the stream ends.",
+  },
+  {
+    title: "You control the algorithm",
+    body: "Pick your topics when you sign up — that's what you'll see. Update them anytime in Settings.",
+  },
+];
+
+// Placeholder live-now cards — swap for real event data at launch.
+const liveNow = [
+  { viewers: "1.2K", price: "$12" },
+  { viewers: "840", price: "$8" },
+  { viewers: "410", price: "$20" },
+  { viewers: "2.1K", price: "$15" },
+];
+---
+
+<BaseLayout title={title} description={description} canonical="/">
+  <!-- ② HERO -->
+  <section class="hero nile-section">
+    <div class="nile-container hero-grid">
+      <div class="hero-copy">
+        <p class="nile-eyebrow">Live streaming for ticketed events</p>
+        <h1>Your show, without the ceiling.</h1>
+        <p class="nile-lead">
+          Nile is the live streaming platform built for ticketed events.
+          Multi-angle broadcasts, on-demand replays, and real revenue from the
+          phone already in your pocket.
+        </p>
+        <div class="hero-cta">
+          <button
+            type="button"
+            data-waitlist
+            data-segment="host"
+            class="nile-btn nile-btn--primary"
+          >
+            Start Streaming →
+          </button>
+          <a href="/watch" class="nile-btn nile-btn--secondary">Watch Events</a>
+        </div>
+      </div>
+
+      <div class="hero-collage">
+        <div class="collage-main">
+          <ImageSlot label="main stage · wide" radius="lg" />
+          <span class="nile-badge-live collage-badge">● Live</span>
+        </div>
+        <ImageSlot label="fretboard cam" radius="lg" />
+        <ImageSlot label="crowd" radius="lg" />
+      </div>
+    </div>
+  </section>
+
+  <!-- ③ HOW IT WORKS -->
+  <section class="band nile-section">
+    <div class="nile-container">
+      <p class="nile-eyebrow">How it works</p>
+      <h2>Live in three steps.</h2>
+      <p class="section-sub">
+        How to live stream and sell tickets to your event
+      </p>
+      <div class="steps">
+        {
+          steps.map((s) => (
+            <div class="step nile-card">
+              <div class="step-img">
+                <ImageSlot label={s.img} radius="md" ratio="16 / 9" />
+                <span class="step-num">{s.n}</span>
+              </div>
+              <h3>{s.title}</h3>
+              <p>{s.body}</p>
+            </div>
+          ))
+        }
+      </div>
+    </div>
+  </section>
+
+  <!-- ④ WHO IT'S FOR -->
+  <section class="nile-section">
+    <div class="nile-container">
+      <p class="nile-eyebrow">Who it's for</p>
+      <h2>Built for live.</h2>
+      <div class="audience-grid">
+        {
+          audiences.map((a) => (
+            <a href={a.href} class="audience nile-card">
+              <div class="audience-img">
+                <ImageSlot label={a.img} radius="md" ratio="16 / 9" />
+              </div>
+              <div class="audience-body">
+                <h3>{a.name}</h3>
+                <p>{a.body}</p>
+                <span class="audience-link">{a.link}</span>
+              </div>
+            </a>
+          ))
+        }
+      </div>
+    </div>
+  </section>
+
+  <!-- ⑤ VIEWER EXPERIENCE -->
+  <section class="band nile-section">
+    <div class="nile-container viewer-grid">
+      <div class="viewer-copy">
+        <p class="nile-eyebrow">Viewer experience</p>
+        <h2>Watch like you're there.</h2>
+        <p class="section-sub">Multi-angle live streaming you control</p>
+        <p>
+          Choose your angle. Switch mid-show. Chat live. Miss the stream? Every
+          Nile event includes on-demand replay — buy access anytime after. No
+          app download required. Watch from any browser, or go deeper with the
+          Nile app.
+        </p>
+        <ImageSlot
+          label="viewer app · angle switcher + live chat"
+          radius="lg"
+          ratio="16 / 10"
+          class="viewer-shot"
+        />
+      </div>
+      <div class="feature-grid">
+        {
+          features.map((f) => (
+            <div class="feature nile-card">
+              <span class="feature-dot" />
+              <h3>{f.title}</h3>
+              <p>{f.body}</p>
+            </div>
+          ))
+        }
+      </div>
+    </div>
+  </section>
+
+  <!-- ⑥ LIVE NOW -->
+  <section class="nile-section live-now">
+    <div class="nile-container">
+      <p class="nile-eyebrow">Live now</p>
+      <h2>See who's live right now.</h2>
+      <p class="section-sub">
+        Real shows on Nile this moment — names, viewer counts, ticket prices.
+      </p>
+    </div>
+    <div class="live-rail">
+      {
+        liveNow.map((e) => (
+          <div class="live-card nile-card">
+            <div class="live-thumb">
+              <ImageSlot label="live show" radius="md" ratio="16 / 9" />
+              <span class="nile-badge-live live-badge">● Live</span>
+              <span class="live-count">◦ {e.viewers}</span>
+            </div>
+            <div class="live-meta">
+              <span class="live-name">Show name</span>
+              <span class="live-price">{e.price} ticket</span>
+            </div>
+          </div>
+        ))
+      }
+      <div class="live-card live-card--peek nile-card" aria-hidden="true">
+        <ImageSlot label="" radius="md" ratio="16 / 9" />
+      </div>
+    </div>
+  </section>
+
+  <!-- ⑦ WAITLIST CTA -->
+  <section class="waitlist-cta nile-section">
+    <div class="nile-container waitlist-inner">
+      <p class="nile-eyebrow">Get early access</p>
+      <h2>Start watching tonight.</h2>
+      <p class="section-sub center">
+        Download the Nile app or watch right from your browser. We'll email you
+        the moment Nile goes live.
+      </p>
+      <button
+        type="button"
+        data-waitlist
+        data-segment="viewer"
+        class="nile-btn nile-btn--primary waitlist-btn"
+      >
+        Join the waitlist →
+      </button>
+      <div class="store-row">
+        <span class="store-pill" aria-disabled="true">
+          Download on the App Store · soon
+        </span>
+        <span class="store-pill" aria-disabled="true">
+          Get it on Google Play · soon
+        </span>
+        <a href="/watch" class="watch-web">Watch on Web →</a>
+      </div>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  h2 {
+    margin-bottom: var(--nile-s-2);
+  }
+  .section-sub {
+    color: var(--nile-txt-secondary);
+    margin-bottom: var(--nile-s-8);
+  }
+  .section-sub.center {
+    text-align: center;
+  }
+  /* Section backgrounds are handled by automatic zebra striping in brand.css. */
+
+  /* ② Hero */
+  .hero {
+    padding-block: var(--nile-s-16) var(--nile-s-12);
+  }
+  .hero-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--nile-s-12);
+    align-items: center;
+  }
+  .hero-cta {
+    display: flex;
+    gap: var(--nile-s-3);
+    margin-top: var(--nile-s-8);
+  }
+  .hero-collage {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    gap: var(--nile-s-3);
+    aspect-ratio: 4 / 3;
+  }
+  .collage-main {
+    grid-row: span 2;
+    position: relative;
+  }
+  .collage-badge {
+    position: absolute;
+    top: var(--nile-s-3);
+    left: var(--nile-s-3);
+  }
+
+  /* ③ How it works */
+  .steps {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--nile-s-4);
+  }
+  .step {
+    padding: 0;
+    overflow: hidden;
+  }
+  .step-img {
+    position: relative;
+  }
+  .step-num {
+    position: absolute;
+    top: var(--nile-s-3);
+    left: var(--nile-s-3);
+    width: 30px;
+    height: 30px;
+    display: grid;
+    place-items: center;
+    background: var(--nile-volt);
+    color: var(--nile-on-volt);
+    font-weight: 700;
+    border-radius: var(--nile-r-pill);
+  }
+  .step h3,
+  .step p {
+    padding-inline: var(--nile-s-6);
+  }
+  .step h3 {
+    margin-top: var(--nile-s-4);
+  }
+  .step p {
+    color: var(--nile-txt-secondary);
+    padding-bottom: var(--nile-s-6);
+  }
+
+  /* ④ Who it's for */
+  .audience-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--nile-s-4);
+  }
+  .audience {
+    padding: 0;
+    overflow: hidden;
+    display: flex;
+    text-decoration: none;
+    color: inherit;
+    transition: border-color 0.15s ease;
+  }
+  .audience:hover {
+    border-color: var(--nile-border-strong);
+    text-decoration: none;
+  }
+  .audience-img {
+    flex: 0 0 180px;
+  }
+  .audience-body {
+    padding: var(--nile-s-6);
+  }
+  .audience-body h3 {
+    margin-bottom: var(--nile-s-2);
+  }
+  .audience-body p {
+    color: var(--nile-txt-secondary);
+    font-size: 0.95rem;
+  }
+  .audience-link {
+    color: var(--nile-volt);
+    font-weight: 600;
+    font-size: 0.9rem;
+  }
+
+  /* ⑤ Viewer experience */
+  .viewer-grid {
+    display: grid;
+    grid-template-columns: 360px 1fr;
+    gap: var(--nile-s-12);
+    align-items: start;
+  }
+  .viewer-copy p {
+    color: var(--nile-txt-secondary);
+  }
+  .viewer-shot {
+    margin-top: var(--nile-s-6);
+  }
+  .feature-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--nile-s-4);
+  }
+  .feature-dot {
+    display: block;
+    width: 34px;
+    height: 34px;
+    border-radius: var(--nile-r-sm);
+    background: var(--nile-bg-raised);
+    border: 1px solid var(--nile-border);
+    margin-bottom: var(--nile-s-3);
+  }
+  .feature h3 {
+    font-size: 1.1rem;
+    margin-bottom: var(--nile-s-1);
+  }
+  .feature p {
+    color: var(--nile-txt-secondary);
+    font-size: 0.9rem;
+    margin: 0;
+  }
+
+  /* ⑥ Live now */
+  .live-rail {
+    display: flex;
+    gap: var(--nile-s-4);
+    overflow-x: auto;
+    padding: var(--nile-s-2) var(--nile-s-6) var(--nile-s-4);
+    max-width: var(--nile-max-width);
+    margin-inline: auto;
+    scroll-snap-type: x mandatory;
+  }
+  .live-card {
+    flex: 0 0 230px;
+    padding: 0;
+    overflow: hidden;
+    scroll-snap-align: start;
+  }
+  .live-card--peek {
+    opacity: 0.4;
+  }
+  .live-thumb {
+    position: relative;
+  }
+  .live-badge {
+    position: absolute;
+    top: var(--nile-s-2);
+    left: var(--nile-s-2);
+  }
+  .live-count {
+    position: absolute;
+    top: var(--nile-s-2);
+    right: var(--nile-s-2);
+    background: color-mix(in srgb, var(--nile-bg-page) 70%, transparent);
+    color: var(--nile-txt-secondary);
+    font-size: 0.7rem;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: var(--nile-r-pill);
+  }
+  .live-meta {
+    padding: var(--nile-s-3) var(--nile-s-4) var(--nile-s-4);
+  }
+  .live-name {
+    display: block;
+    font-weight: 700;
+  }
+  .live-price {
+    display: block;
+    margin-top: var(--nile-s-2);
+    color: var(--nile-volt);
+    font-weight: 600;
+    font-size: 0.9rem;
+  }
+
+  /* ⑦ Waitlist CTA */
+  .waitlist-inner {
+    text-align: center;
+    max-width: 640px;
+  }
+  .waitlist-btn {
+    margin-top: var(--nile-s-2);
+  }
+  .store-row {
+    display: flex;
+    gap: var(--nile-s-3);
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-top: var(--nile-s-6);
+  }
+  .store-pill {
+    padding: var(--nile-s-3) var(--nile-s-4);
+    border: 1px solid var(--nile-border);
+    border-radius: var(--nile-r-pill);
+    color: var(--nile-txt-tertiary);
+    font-size: 0.85rem;
+    font-weight: 600;
+  }
+  .watch-web {
+    color: var(--nile-volt);
+    font-weight: 600;
+    font-size: 0.9rem;
+  }
+
+  /* ---- Responsive: collapse to single column (mobile-first wireframe) ---- */
+  @media (max-width: 880px) {
+    .hero-grid,
+    .viewer-grid {
+      grid-template-columns: 1fr;
+      gap: var(--nile-s-8);
+    }
+    .steps,
+    .audience-grid,
+    .feature-grid {
+      grid-template-columns: 1fr;
+    }
+    .audience {
+      flex-direction: column;
+    }
+    .audience-img {
+      flex-basis: auto;
+    }
+    .hero-cta {
+      flex-direction: column;
+      align-items: stretch;
+    }
+    .hero-cta .nile-btn {
+      justify-content: center;
+    }
+  }
+</style>

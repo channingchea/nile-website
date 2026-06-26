@@ -1,0 +1,88 @@
+---
+import "../styles/brand.css";
+import Header from "../components/Header.astro";
+import Footer from "../components/Footer.astro";
+import WaitlistModal from "../components/WaitlistModal.vue";
+import { SITE } from "../site.config";
+
+interface Props {
+  title?: string;
+  description?: string;
+  /** Path-only canonical, e.g. "/host". Defaults to current URL. */
+  canonical?: string;
+  ogImage?: string;
+  /** Raw JSON-LD string injected into <head> (e.g. FAQPage schema). */
+  jsonLd?: string;
+}
+
+const {
+  title = SITE.defaultTitle,
+  description = SITE.defaultDescription,
+  canonical,
+  ogImage = SITE.ogImage,
+  jsonLd,
+} = Astro.props;
+
+const canonicalUrl = new URL(canonical ?? Astro.url.pathname, SITE.domain).href;
+const ogImageUrl = new URL(ogImage, SITE.domain).href;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonicalUrl} />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content={SITE.name} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonicalUrl} />
+    <meta property="og:image" content={ogImageUrl} />
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogImageUrl} />
+
+    <!-- Fonts: Syne (display) + Outfit (body) + Material Symbols (icons) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,1,0&family=Outfit:wght@300;400;500;600&family=Syne:wght@600;700;800&display=swap"
+      rel="stylesheet"
+    />
+
+    {jsonLd && <script type="application/ld+json" set:html={jsonLd} />}
+    <slot name="head" />
+  </head>
+  <body>
+    <Header />
+    <main>
+      <slot />
+    </main>
+    <Footer />
+    <WaitlistModal client:idle />
+
+    <script is:inline>
+      // Any element with [data-waitlist] opens the modal. Optional
+      // data-segment="host|viewer|advertiser" preselects the segment.
+      document.addEventListener("click", (e) => {
+        const t = e.target.closest("[data-waitlist]");
+        if (!t) return;
+        e.preventDefault();
+        window.dispatchEvent(
+          new CustomEvent("nile:waitlist-open", {
+            detail: { segment: t.getAttribute("data-segment") || undefined },
+          }),
+        );
+      });
+    </script>
+  </body>
+</html>

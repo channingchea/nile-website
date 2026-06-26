@@ -1,0 +1,91 @@
+---
+import { FOOTER_NAV, LEGAL_NAV, SITE } from "../site.config";
+const year = new Date().getFullYear();
+---
+
+<footer class="site-footer">
+  <div class="nile-container footer-inner">
+    <div class="footer-brand">
+      <span class="brand">Nile</span>
+      <p class="tagline">Your show, without the ceiling.</p>
+    </div>
+
+    <nav class="footer-nav" aria-label="Footer">
+      {FOOTER_NAV.map((item) => <a href={item.href}>{item.label}</a>)}
+    </nav>
+  </div>
+
+  <div class="nile-container footer-bottom">
+    <p class="copyright">© {year} Nile. Available in the US.</p>
+    <nav class="footer-legal" aria-label="Legal">
+      {LEGAL_NAV.map((item) => <a href={item.href}>{item.label}</a>)}
+      <a href={`mailto:${SITE.supportEmail}`}>Support</a>
+    </nav>
+  </div>
+</footer>
+
+<style>
+  .site-footer {
+    border-top: 1px solid var(--nile-border);
+    background: var(--nile-bg-surface);
+    padding-block: var(--nile-s-12) var(--nile-s-6);
+    margin-top: var(--nile-s-16);
+  }
+  .footer-inner {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--nile-s-8);
+    justify-content: space-between;
+  }
+  .brand {
+    font-family: var(--nile-font-display);
+    font-weight: 800;
+    font-size: 1.5rem;
+    color: var(--nile-volt);
+  }
+  .tagline {
+    color: var(--nile-txt-secondary);
+    margin-top: var(--nile-s-2);
+  }
+  .footer-nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--nile-s-4);
+    align-content: flex-start;
+    max-width: 480px;
+  }
+  .footer-nav a {
+    color: var(--nile-txt-secondary);
+    font-size: 0.95rem;
+    text-decoration: none;
+  }
+  .footer-nav a:hover {
+    color: var(--nile-txt-primary);
+  }
+  .footer-bottom {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: var(--nile-s-4);
+    margin-top: var(--nile-s-8);
+    padding-top: var(--nile-s-6);
+    border-top: 1px solid var(--nile-border);
+  }
+  .copyright {
+    color: var(--nile-txt-tertiary);
+    font-size: 0.85rem;
+    margin: 0;
+  }
+  .footer-legal {
+    display: flex;
+    gap: var(--nile-s-4);
+  }
+  .footer-legal a {
+    color: var(--nile-txt-tertiary);
+    font-size: 0.85rem;
+    text-decoration: none;
+  }
+  .footer-legal a:hover {
+    color: var(--nile-txt-secondary);
+  }
+</style>
