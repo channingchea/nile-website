@@ -36,4 +36,5 @@ export const LEGAL_NAV = [
   { label: "Privacy", href: "/privacy" },
   { label: "Terms", href: "/terms" },
   { label: "Cookies", href: "/cookies" },
+  { label: "Contact", href: "/contact" },
 ] as const;

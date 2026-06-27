@@ -1,6 +1,7 @@
-// ⏳ OPEN DECISION: waitlist destination (Supabase table vs. Klaviyo).
-// This is the single swap point. The form component never changes — only
-// the body of submitWaitlist below. Until decided, it no-ops + logs.
+// Waitlist destination: Klaviyo via client-side subscribe API.
+// Public key is safe to expose in the browser — it's not a secret.
+// Set PUBLIC_KLAVIYO_KEY in .env (Astro exposes PUBLIC_* to client bundles).
+// Set PUBLIC_KLAVIYO_LIST_ID to the Klaviyo list ID for waitlist signups.
 
 export type WaitlistSegment = "host" | "viewer" | "advertiser";
 
@@ -10,12 +11,51 @@ export interface WaitlistEntry {
 }
 
 export async function submitWaitlist(entry: WaitlistEntry): Promise<void> {
-  // --- PLACEHOLDER ---
-  // Supabase option: POST to a `waitlist-signup` edge function.
-  // Klaviyo option:  POST to Klaviyo's client subscribe endpoint.
-  // Replace this block once the destination is locked.
-  if (import.meta.env.DEV) {
-    console.info("[waitlist placeholder]", entry);
+  const companyId = import.meta.env.PUBLIC_KLAVIYO_KEY;
+  const listId = import.meta.env.PUBLIC_KLAVIYO_LIST_ID;
+
+  if (!companyId) {
+    if (import.meta.env.DEV) {
+      console.info("[waitlist] No PUBLIC_KLAVIYO_KEY set — skipping (dev mode)", entry);
+    }
+    await new Promise((r) => setTimeout(r, 300));
+    return;
   }
-  await new Promise((r) => setTimeout(r, 400)); // simulate latency
+
+  const body: Record<string, unknown> = {
+    data: {
+      type: "subscription",
+      attributes: {
+        profile: {
+          data: {
+            type: "profile",
+            attributes: {
+              email: entry.email,
+              properties: {
+                waitlist_segment: entry.segment ?? "unknown",
+              },
+            },
+          },
+        },
+        ...(listId ? { list: { data: { type: "list", id: listId } } } : {}),
+      },
+    },
+  };
+
+  const res = await fetch(
+    `https://a.klaviyo.com/client/subscriptions/?company_id=${companyId}`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        revision: "2023-12-15",
+      },
+      body: JSON.stringify(body),
+    },
+  );
+
+  // 202 = accepted (async processing); anything else is an error
+  if (!res.ok && res.status !== 202) {
+    throw new Error(`Klaviyo error: ${res.status}`);
+  }
 }

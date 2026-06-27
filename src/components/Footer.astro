@@ -19,7 +19,6 @@ const year = new Date().getFullYear();
     <p class="copyright">© {year} Nile. Available in the US.</p>
     <nav class="footer-legal" aria-label="Legal">
       {LEGAL_NAV.map((item) => <a href={item.href}>{item.label}</a>)}
-      <a href={`mailto:${SITE.supportEmail}`}>Support</a>
     </nav>
   </div>
 </footer>

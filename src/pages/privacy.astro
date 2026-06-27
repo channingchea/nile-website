@@ -1,0 +1,148 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import { SITE } from "../site.config";
+
+const updated = "June 26, 2026";
+---
+
+<BaseLayout
+  title="Privacy Policy | Nile"
+  description="How Nile collects, uses, and protects your information."
+  canonical="/privacy"
+>
+  <section class="legal-page nile-section">
+    <div class="nile-container legal-container">
+      <div class="legal-header">
+        <p class="nile-eyebrow">Legal</p>
+        <h1>Privacy Policy</h1>
+        <p class="updated">Last updated: {updated}</p>
+      </div>
+
+      <div class="legal-body">
+
+        <p>Nile ("we," "us," or "our") operates joinnile.com and the Nile mobile application (collectively, the "Service"). This Privacy Policy explains what information we collect, how we use it, and your rights regarding it. By using the Service, you agree to this policy.</p>
+        <p>The Service is currently available to residents of the United States only.</p>
+
+        <h2>1. Information We Collect</h2>
+
+        <h3>Information you provide directly</h3>
+        <ul>
+          <li><strong>Account information</strong> — name, email address, and password when you create a Nile account.</li>
+          <li><strong>Profile information</strong> — display name, bio, avatar, and other details you choose to add.</li>
+          <li><strong>Waitlist sign-up</strong> — email address and your selected role (host, viewer, or advertiser) when you join our waitlist.</li>
+          <li><strong>Payment information</strong> — when you purchase a ticket or receive payouts as a host, payment data is processed by Stripe. We do not store your full card number; Stripe handles all payment data under their own <a href="https://stripe.com/privacy" target="_blank" rel="noopener">privacy policy</a>.</li>
+          <li><strong>Content</strong> — posts, comments, event details, and any other content you create on the platform.</li>
+        </ul>
+
+        <h3>Information collected automatically</h3>
+        <ul>
+          <li><strong>Usage data</strong> — pages visited, features used, timestamps, and interaction data.</li>
+          <li><strong>Device and log data</strong> — IP address, browser type, operating system, and crash reports.</li>
+          <li><strong>Cookies and similar technologies</strong> — see our <a href="/cookies">Cookie Policy</a>.</li>
+        </ul>
+
+        <h2>2. How We Use Your Information</h2>
+        <p>We use the information we collect to:</p>
+        <ul>
+          <li>Provide, operate, and improve the Service</li>
+          <li>Process ticket purchases and host payouts</li>
+          <li>Send transactional emails (receipts, waitlist confirmations, event notifications)</li>
+          <li>Send marketing emails to waitlist subscribers and users who have opted in — you can unsubscribe at any time via the link in any email</li>
+          <li>Detect and prevent fraud, abuse, and violations of our Terms of Service</li>
+          <li>Comply with legal obligations</li>
+        </ul>
+
+        <h2>3. How We Share Your Information</h2>
+        <p>We do not sell your personal information. We share data only in these circumstances:</p>
+        <ul>
+          <li><strong>Service providers</strong> — we use Supabase (database and authentication), Stripe (payments), Klaviyo (email marketing), LiveKit (video streaming), and Sentry (error monitoring). Each operates under its own privacy policy and processes data only as needed to provide their services to us.</li>
+          <li><strong>Other users</strong> — your public profile, posts, and events are visible to other users of the Service.</li>
+          <li><strong>Legal requirements</strong> — if required by law, court order, or to protect the rights and safety of Nile or others.</li>
+          <li><strong>Business transfers</strong> — in the event of a merger, acquisition, or sale of assets, your information may be transferred as part of that transaction.</li>
+        </ul>
+
+        <h2>4. Data Retention</h2>
+        <p>We retain your account data for as long as your account is active. If you delete your account, we delete your personal data within 30 days, except where we are required to retain it for legal or financial compliance purposes (e.g., Stripe transaction records).</p>
+
+        <h2>5. Security</h2>
+        <p>We use industry-standard security measures including encrypted connections (HTTPS/TLS), hashed passwords, and access controls. No system is completely secure; we cannot guarantee absolute security but will notify you of any breach as required by law.</p>
+
+        <h2>6. Children</h2>
+        <p>The Service is not directed to children under 13. We do not knowingly collect personal information from children under 13. If you believe a child has provided us with personal information, please contact us and we will delete it.</p>
+
+        <h2>7. Your Rights</h2>
+        <p>You may:</p>
+        <ul>
+          <li>Access and update your account information in the app at any time</li>
+          <li>Delete your account via Settings → Delete Account</li>
+          <li>Unsubscribe from marketing emails via the unsubscribe link in any email</li>
+          <li>Request a copy of your data by <a href="/contact">contacting us</a></li>
+        </ul>
+        <p>If you are a California resident, you may have additional rights under the California Consumer Privacy Act (CCPA), including the right to know what personal information is collected and the right to request deletion. Contact us to exercise these rights.</p>
+
+        <h2>8. Changes to This Policy</h2>
+        <p>We may update this Privacy Policy from time to time. We will notify you of material changes by email or by posting a notice on the Service. Continued use of the Service after changes become effective constitutes acceptance of the updated policy.</p>
+
+        <h2>9. Contact</h2>
+        <p>Questions about this policy? <a href="/contact">Contact us here</a>.</p>
+
+      </div>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .legal-page {
+    padding-block: var(--nile-s-16);
+  }
+  .legal-container {
+    max-width: 760px;
+    margin-inline: auto;
+  }
+  .legal-header {
+    margin-bottom: var(--nile-s-12);
+  }
+  .legal-header h1 {
+    font-family: var(--nile-font-display);
+    font-size: clamp(2rem, 5vw, 3rem);
+    margin: var(--nile-s-3) 0 var(--nile-s-3);
+  }
+  .updated {
+    color: var(--nile-txt-tertiary);
+    font-size: 0.9rem;
+    margin: 0;
+  }
+  .legal-body {
+    color: var(--nile-txt-secondary);
+    line-height: 1.75;
+  }
+  .legal-body p {
+    margin: 0 0 var(--nile-s-4);
+  }
+  .legal-body h2 {
+    font-family: var(--nile-font-display);
+    font-size: 1.25rem;
+    color: var(--nile-txt-primary);
+    margin: var(--nile-s-10) 0 var(--nile-s-3);
+  }
+  .legal-body h3 {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--nile-txt-primary);
+    margin: var(--nile-s-6) 0 var(--nile-s-2);
+  }
+  .legal-body ul {
+    margin: 0 0 var(--nile-s-4);
+    padding-left: var(--nile-s-6);
+  }
+  .legal-body li {
+    margin-bottom: var(--nile-s-2);
+  }
+  .legal-body a {
+    color: var(--nile-volt);
+    text-decoration: none;
+  }
+  .legal-body a:hover {
+    text-decoration: underline;
+  }
+</style>

@@ -1,0 +1,90 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+
+const TALLY_FORM_ID = "D4Yz2R";
+---
+
+<BaseLayout
+  title="Contact | Nile"
+  description="Get in touch with the Nile team for support, refund requests, or general questions."
+  canonical="/contact"
+>
+  <section class="contact-page nile-section">
+    <div class="nile-container contact-container">
+      <div class="contact-header">
+        <p class="nile-eyebrow">Get in touch</p>
+        <h1>Contact Us</h1>
+        <p class="contact-sub">Support requests, refund questions, or anything else — we'll get back to you within 1–2 business days.</p>
+      </div>
+
+      <div class="form-wrap">
+        {TALLY_FORM_ID ? (
+          <iframe
+            data-tally-src={`https://tally.so/embed/${TALLY_FORM_ID}?alignLeft=1&hideTitle=1&dynamicHeight=1`}
+            loading="lazy"
+            width="100%"
+            height="500"
+            frameborder="0"
+            marginheight="0"
+            marginwidth="0"
+            title="Contact Nile"
+            class="tally-frame"
+          ></iframe>
+        ) : (
+          <div class="placeholder">
+            <p>Form coming soon — in the meantime, email us at <a href="mailto:support@joinnile.com">support@joinnile.com</a>.</p>
+          </div>
+        )}
+      </div>
+    </div>
+  </section>
+</BaseLayout>
+
+<!-- Tally embed script — loads the iframe and enables dynamic height -->
+<script is:inline src="https://tally.so/widgets/embed.js" async></script>
+
+<style>
+  .contact-page {
+    padding-block: var(--nile-s-16);
+  }
+  .contact-container {
+    max-width: 680px;
+    margin-inline: auto;
+  }
+  .contact-header {
+    margin-bottom: var(--nile-s-10);
+  }
+  .contact-header h1 {
+    font-family: var(--nile-font-display);
+    font-size: clamp(2rem, 5vw, 3rem);
+    margin: var(--nile-s-3) 0 var(--nile-s-3);
+    color: var(--nile-txt-primary);
+  }
+  .contact-sub {
+    color: var(--nile-txt-secondary);
+    font-size: 1.1rem;
+    line-height: 1.6;
+    margin: 0;
+  }
+  .form-wrap {
+    /* No wrapper card — let Tally render its own themed container */
+    padding: 0;
+  }
+  .tally-frame {
+    display: block;
+    border: none;
+    border-radius: var(--nile-r-xl);
+    overflow: hidden;
+  }
+  .placeholder {
+    color: var(--nile-txt-secondary);
+    padding: var(--nile-s-4) 0;
+  }
+  .placeholder a {
+    color: var(--nile-volt);
+    text-decoration: none;
+  }
+  .placeholder a:hover {
+    text-decoration: underline;
+  }
+</style>

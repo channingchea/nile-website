@@ -1,0 +1,125 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import { SITE } from "../site.config";
+
+const updated = "June 26, 2026";
+---
+
+<BaseLayout
+  title="Cookie Policy | Nile"
+  description="How Nile uses cookies and similar tracking technologies."
+  canonical="/cookies"
+>
+  <section class="legal-page nile-section">
+    <div class="nile-container legal-container">
+      <div class="legal-header">
+        <p class="nile-eyebrow">Legal</p>
+        <h1>Cookie Policy</h1>
+        <p class="updated">Last updated: {updated}</p>
+      </div>
+
+      <div class="legal-body">
+
+        <p>This Cookie Policy explains how Nile uses cookies and similar tracking technologies on joinnile.com and the Nile mobile application (collectively, the "Service"). For more on how we handle your personal data, see our <a href="/privacy">Privacy Policy</a>.</p>
+
+        <h2>What Are Cookies?</h2>
+        <p>Cookies are small text files stored on your device by your browser when you visit a website. They help the site remember information about your visit, such as your preferences or session state. Similar technologies include local storage, session storage, and pixel tags.</p>
+
+        <h2>Cookies We Use</h2>
+
+        <h3>Strictly necessary</h3>
+        <p>These cookies are required for the Service to function. They cannot be disabled.</p>
+        <ul>
+          <li><strong>Session cookies</strong> — keep you logged in during your session. Set by Supabase (our authentication provider). Expire when you close your browser or your session times out.</li>
+          <li><strong>CSRF tokens</strong> — protect against cross-site request forgery. Set automatically; expire with your session.</li>
+        </ul>
+
+        <h3>Analytics</h3>
+        <p>We use Google Analytics 4 (GA4) to understand how visitors use the site — which pages are visited, how long people stay, and where traffic comes from. This helps us improve the Service.</p>
+        <ul>
+          <li><strong>_ga, _ga_*</strong> — set by Google Analytics. Persist for up to 2 years. Identify unique visitors and sessions.</li>
+        </ul>
+        <p>GA4 is configured with IP anonymization enabled. We do not use GA4 data to serve you targeted advertising. You can opt out of Google Analytics across the web using <a href="https://tools.google.com/dlpage/gaoptout" target="_blank" rel="noopener">Google's opt-out browser add-on</a>.</p>
+
+        <h3>What we do NOT use</h3>
+        <p>We do not use advertising or retargeting cookies. We do not share cookie data with ad networks or data brokers.</p>
+
+        <h2>Do We Need a Cookie Banner?</h2>
+        <p>The Service is currently available to US residents only. US federal law does not require a cookie consent banner. If we expand to the EU, UK, or other jurisdictions with stricter requirements (e.g., GDPR, ePrivacy), we will add a consent mechanism at that time.</p>
+
+        <h2>Managing Cookies</h2>
+        <p>You can control and delete cookies through your browser settings. Note that disabling strictly necessary cookies will prevent you from logging in or using core features of the Service.</p>
+        <p>Common browser cookie controls:</p>
+        <ul>
+          <li><a href="https://support.google.com/chrome/answer/95647" target="_blank" rel="noopener">Chrome</a></li>
+          <li><a href="https://support.mozilla.org/en-US/kb/cookies-information-websites-store-on-your-computer" target="_blank" rel="noopener">Firefox</a></li>
+          <li><a href="https://support.apple.com/guide/safari/manage-cookies-and-website-data-sfri11471/mac" target="_blank" rel="noopener">Safari</a></li>
+          <li><a href="https://support.microsoft.com/en-us/windows/delete-and-manage-cookies-168dab11-0753-043d-7c16-ede5947fc64d" target="_blank" rel="noopener">Edge</a></li>
+        </ul>
+
+        <h2>Changes to This Policy</h2>
+        <p>We may update this Cookie Policy as we add or change technologies. We'll note the "last updated" date at the top when we do.</p>
+
+        <h2>Contact</h2>
+        <p>Questions? <a href="/contact">Contact us here</a>.</p>
+
+      </div>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .legal-page {
+    padding-block: var(--nile-s-16);
+  }
+  .legal-container {
+    max-width: 760px;
+    margin-inline: auto;
+  }
+  .legal-header {
+    margin-bottom: var(--nile-s-12);
+  }
+  .legal-header h1 {
+    font-family: var(--nile-font-display);
+    font-size: clamp(2rem, 5vw, 3rem);
+    margin: var(--nile-s-3) 0 var(--nile-s-3);
+  }
+  .updated {
+    color: var(--nile-txt-tertiary);
+    font-size: 0.9rem;
+    margin: 0;
+  }
+  .legal-body {
+    color: var(--nile-txt-secondary);
+    line-height: 1.75;
+  }
+  .legal-body p {
+    margin: 0 0 var(--nile-s-4);
+  }
+  .legal-body h2 {
+    font-family: var(--nile-font-display);
+    font-size: 1.25rem;
+    color: var(--nile-txt-primary);
+    margin: var(--nile-s-10) 0 var(--nile-s-3);
+  }
+  .legal-body h3 {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--nile-txt-primary);
+    margin: var(--nile-s-6) 0 var(--nile-s-2);
+  }
+  .legal-body ul {
+    margin: 0 0 var(--nile-s-4);
+    padding-left: var(--nile-s-6);
+  }
+  .legal-body li {
+    margin-bottom: var(--nile-s-2);
+  }
+  .legal-body a {
+    color: var(--nile-volt);
+    text-decoration: none;
+  }
+  .legal-body a:hover {
+    text-decoration: underline;
+  }
+</style>
