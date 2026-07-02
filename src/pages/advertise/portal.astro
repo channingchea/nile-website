@@ -1,0 +1,31 @@
+---
+// Advertiser portal — the interactive self-serve app (A-4 Part 2).
+// Served at ads.joinnile.com (subdomain points at this same build; see deploy
+// notes). Rendered as a client-only Vue island: it's fully auth-gated with no
+// meaningful static content, so there's nothing to pre-render or index.
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import AdvertiserPortal from "../../components/AdvertiserPortal.vue";
+---
+
+<BaseLayout
+  title="Advertiser Portal · Nile Ads"
+  description="Create and manage your Nile ad campaigns."
+  canonical="/advertise/portal"
+>
+  <Fragment slot="head">
+    <meta name="robots" content="noindex" />
+  </Fragment>
+
+  <section class="nile-section">
+    <div class="nile-container portal-wrap">
+      <p class="nile-eyebrow">Nile Ads</p>
+      <h1 class="portal-h1">Advertiser portal</h1>
+      <AdvertiserPortal client:only="vue" />
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .portal-wrap { padding-top: var(--nile-s-6); padding-bottom: var(--nile-s-20); }
+  .portal-h1 { font-size: clamp(28px, 5vw, 40px); margin: 0 0 var(--nile-s-8); }
+</style>

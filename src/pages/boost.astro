@@ -1,0 +1,28 @@
+---
+// Host-boost checkout (A-2) — mounts the BoostPortal island at /boost.
+// The in-app CTA opens links.joinnile.com/boost?event=<id> in the external
+// browser; point that host at this same build (see ADS_SUBDOMAIN_DEPLOY.md).
+// Client-only + noindex: it's an auth-gated checkout, nothing to pre-render.
+import BaseLayout from "../layouts/BaseLayout.astro";
+import BoostPortal from "../components/BoostPortal.vue";
+---
+
+<BaseLayout
+  title="Boost your event · Nile"
+  description="Promote your event in the Nile feed."
+  canonical="/boost"
+>
+  <Fragment slot="head">
+    <meta name="robots" content="noindex" />
+  </Fragment>
+
+  <section class="nile-section">
+    <div class="nile-container boost-wrap">
+      <BoostPortal client:only="vue" />
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .boost-wrap { padding-top: var(--nile-s-8); padding-bottom: var(--nile-s-20); }
+</style>

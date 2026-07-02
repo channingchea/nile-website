@@ -9,6 +9,9 @@ export const SITE = {
   // ⏳ placeholder — swap for real monitored inbox before email capture goes live
   supportEmail: "support@joinnile.com",
   ogImage: "/og/default.png", // ⏳ placeholder asset
+  // Advertiser portal (A-4 Part 2). Lives at the ads subdomain, which points at
+  // this same build; /advertise/portal is the route within it.
+  adPortalUrl: "https://ads.joinnile.com/advertise/portal",
 } as const;
 
 // Top nav. Items may have `children` → rendered as a dropdown in the header.

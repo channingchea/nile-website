@@ -1,6 +1,7 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
 import ImageSlot from "../components/ImageSlot.astro";
+import { SITE } from "../site.config";
 
 const title = "Advertise to Engaged Live Audiences | Self-Serve Ads | Nile";
 const description =
@@ -40,14 +41,9 @@ const audiences = [
         exact crowd that cares about what you sell — no media buyer required.
       </p>
       <div class="hero-cta">
-        <button
-          type="button"
-          data-waitlist
-          data-segment="advertiser"
-          class="nile-btn nile-btn--primary"
-        >
+        <a href={SITE.adPortalUrl} class="nile-btn nile-btn--primary">
           Open the Ad Portal →
-        </button>
+        </a>
       </div>
     </div>
   </section>
@@ -145,14 +141,9 @@ const audiences = [
       <p class="closing-sub">
         Open the self-serve portal and launch your first campaign today.
       </p>
-      <button
-        type="button"
-        data-waitlist
-        data-segment="advertiser"
-        class="nile-btn nile-btn--primary closing-btn"
-      >
+      <a href={SITE.adPortalUrl} class="nile-btn nile-btn--primary closing-btn">
         Open the Ad Portal →
-      </button>
+      </a>
       <a href="/faq#advertisers" class="secondary-link">
         Questions? Read the FAQ →
       </a>
