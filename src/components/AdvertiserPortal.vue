@@ -45,8 +45,11 @@ type Topic = { id: string; name: string };
 type Row = {
   campaign_id: string; name: string; headline: string | null; status: string;
   budget_cents: number; spent_cents: number; impressions: number; clicks: number;
-  review_note: string | null;
+  review_note: string | null; created_at: string;
 };
+type DailyPoint = { day: string; impressions: number; clicks: number };
+
+const PAGE = 15; // keyset page size (mirrors the app's Paged<T> convention)
 
 const sb = supabase();
 
@@ -68,6 +71,10 @@ const profileUsername = ref("");
 
 // dashboard
 const rows = ref<Row[]>([]);
+const dashCursor = ref<string | null>(null);
+const dashHasMore = ref(false);
+const loadingMore = ref(false);
+const daily = ref<DailyPoint[]>([]);
 
 // builder (create + edit-while-in-review)
 const topics = ref<Topic[]>([]);
@@ -298,14 +305,55 @@ async function submitAccount() {
 async function openDashboard() {
   msg.value = "";
   view.value = "loading";
-  const { data, error } = await sb.rpc("get_advertiser_performance", {
-    p_account_id: account.value!.id,
-  });
+  const acct = account.value!.id;
+  const [{ data, error }, { data: dly }] = await Promise.all([
+    sb.rpc("get_advertiser_performance", { p_account_id: acct, p_limit: PAGE }),
+    sb.rpc("get_advertiser_daily", { p_account_id: acct }),
+  ]);
   if (error) msg.value = error.message;
-  rows.value = (data as Row[]) ?? [];
+  const page = (data as Row[]) ?? [];
+  rows.value = page;
+  dashCursor.value = page.length ? page[page.length - 1].created_at : null;
+  dashHasMore.value = page.length === PAGE;
+  daily.value = (dly as DailyPoint[]) ?? [];
   view.value = "dash";
   startCheckoutPoll();
 }
+async function loadMoreDash() {
+  if (loadingMore.value || !dashHasMore.value) return;
+  loadingMore.value = true;
+  const { data, error } = await sb.rpc("get_advertiser_performance", {
+    p_account_id: account.value!.id, p_limit: PAGE, p_before: dashCursor.value,
+  });
+  if (error) msg.value = error.message;
+  const page = (data as Row[]) ?? [];
+  rows.value = [...rows.value, ...page];
+  dashCursor.value = page.length ? page[page.length - 1].created_at : dashCursor.value;
+  dashHasMore.value = page.length === PAGE;
+  loadingMore.value = false;
+}
+
+// Daily impressions/clicks chart (inline SVG, no chart dependency).
+const CHART_W = 640, CHART_H = 120, CHART_PAD = 4;
+const chart = computed(() => {
+  const pts = daily.value;
+  if (pts.length < 2) return null;
+  const max = Math.max(1, ...pts.map((p) => Math.max(p.impressions, p.clicks)));
+  const x = (i: number) =>
+    CHART_PAD + (i / (pts.length - 1)) * (CHART_W - 2 * CHART_PAD);
+  const y = (v: number) =>
+    CHART_H - CHART_PAD - (v / max) * (CHART_H - 2 * CHART_PAD);
+  const line = (key: "impressions" | "clicks") =>
+    pts.map((p, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(p[key]).toFixed(1)}`).join(" ");
+  return {
+    impr: line("impressions"), clk: line("clicks"), max,
+    first: pts[0].day, last: pts[pts.length - 1].day,
+    totalImpr: pts.reduce((s, p) => s + p.impressions, 0),
+    totalClk: pts.reduce((s, p) => s + p.clicks, 0),
+  };
+});
+const shortDate = (s: string) =>
+  new Date(s + "T00:00:00Z").toLocaleDateString(undefined, { month: "short", day: "numeric" });
 // Withdraw (hard-delete) an in-review or rejected ad. Server-side: the
 // review-ad-campaign fn cancels the card hold (in-review only), then deletes
 // the campaign + creative image.
@@ -368,8 +416,20 @@ type AdminRow = {
   advertiser_accounts: { name: string; contact_email: string } | null;
 };
 const queue = ref<AdminRow[]>([]);
+const adminCursor = ref<string | null>(null);
+const adminHasMore = ref(false);
 const topicNames = ref<Record<string, string>>({});
 const actingOn = ref("");
+
+const ADMIN_SELECT =
+  "id, name, status, budget_cents, starts_at, ends_at, created_at, ad_creatives(image_url, headline, body, click_url), ad_targeting(topic_ids), advertiser_accounts(name, contact_email)";
+function fetchAdmin(cursor: string | null, limit: number) {
+  let q = sb.from("ad_campaigns").select(ADMIN_SELECT)
+    .in("status", ["pending_review", "active", "paused"])
+    .order("created_at", { ascending: true }).limit(limit);
+  if (cursor) q = q.gt("created_at", cursor);
+  return q;
+}
 
 // Read-only detail modal (any admin row); reject happens here with an
 // optional reason that's stored on the campaign and shown to the advertiser.
@@ -395,16 +455,38 @@ async function openAdmin() {
   msg.value = "";
   view.value = "loading";
   const [{ data, error }, { data: tps }] = await Promise.all([
-    sb.from("ad_campaigns")
-      .select("id, name, status, budget_cents, starts_at, ends_at, created_at, ad_creatives(image_url, headline, body, click_url), ad_targeting(topic_ids), advertiser_accounts(name, contact_email)")
-      .in("status", ["pending_review", "active", "paused"])
-      .order("created_at", { ascending: true }),
+    fetchAdmin(null, PAGE),
     sb.from("topics").select("id, name"),
   ]);
   if (error) msg.value = error.message;
-  queue.value = (data as unknown as AdminRow[]) ?? [];
+  const page = (data as unknown as AdminRow[]) ?? [];
+  queue.value = page;
+  adminCursor.value = page.length ? page[page.length - 1].created_at : null;
+  adminHasMore.value = page.length === PAGE;
   topicNames.value = Object.fromEntries(((tps as Topic[]) ?? []).map((t) => [t.id, t.name]));
   view.value = "admin";
+}
+async function loadMoreAdmin() {
+  if (loadingMore.value || !adminHasMore.value) return;
+  loadingMore.value = true;
+  const { data, error } = await fetchAdmin(adminCursor.value, PAGE);
+  if (error) msg.value = error.message;
+  const page = (data as unknown as AdminRow[]) ?? [];
+  queue.value = [...queue.value, ...page];
+  adminCursor.value = page.length ? page[page.length - 1].created_at : adminCursor.value;
+  adminHasMore.value = page.length === PAGE;
+  loadingMore.value = false;
+}
+// Re-pull the currently loaded window in place after an admin action, so a row
+// approved on "page 2" doesn't collapse the list back to page 1.
+async function reloadAdmin() {
+  const limit = Math.max(PAGE, queue.value.length);
+  const { data, error } = await fetchAdmin(null, limit);
+  if (error) msg.value = error.message;
+  const page = (data as unknown as AdminRow[]) ?? [];
+  queue.value = page;
+  adminCursor.value = page.length ? page[page.length - 1].created_at : null;
+  adminHasMore.value = page.length === limit;
 }
 
 const pendingRows = computed(() => queue.value.filter((r) => r.status === "pending_review"));
@@ -436,7 +518,7 @@ async function act(r: AdminRow, action: "approve" | "reject" | "pause" | "resume
     const out = await res.json();
     if (!res.ok) throw new Error(out.error || "Action failed");
     closeDetail();
-    await openAdmin();
+    await reloadAdmin();
   } catch (e: any) {
     msg.value = String(e?.message || e);
   } finally {
@@ -475,13 +557,15 @@ async function openEdit(r: Row) {
   msg.value = "";
   view.value = "loading";
   resetBuilder();
-  const [, { data: cr }, { data: tg }] = await Promise.all([
+  // Single nested select instead of separate creative + targeting fetches.
+  const [, { data: camp }] = await Promise.all([
     loadTopics(),
-    sb.from("ad_creatives").select("image_url, headline, body, click_url")
-      .eq("campaign_id", r.campaign_id).maybeSingle(),
-    sb.from("ad_targeting").select("topic_ids")
-      .eq("campaign_id", r.campaign_id).maybeSingle(),
+    sb.from("ad_campaigns")
+      .select("ad_creatives(image_url, headline, body, click_url), ad_targeting(topic_ids)")
+      .eq("id", r.campaign_id).maybeSingle(),
   ]);
+  const cr = (camp as any)?.ad_creatives?.[0];
+  const tg = (camp as any)?.ad_targeting?.[0];
   if (!cr) { msg.value = "Couldn't load this ad."; view.value = "dash"; return; }
   headline.value = cr.headline ?? "";
   body.value = cr.body ?? "";
@@ -581,7 +665,11 @@ async function submitCampaign() {
 
 <template>
   <div class="ap">
-    <div v-if="msg" class="ap-msg ap-err">{{ msg }}</div>
+    <div v-if="msg" class="ap-msg ap-err">
+      <span>{{ msg }}</span>
+      <button v-if="view === 'dash'" type="button" class="ap-retry" @click="openDashboard">Retry</button>
+      <button v-else-if="view === 'admin'" type="button" class="ap-retry" @click="openAdmin">Retry</button>
+    </div>
     <div v-if="returnBanner" class="ap-msg ap-ok">
       Payment received — your ad is now in review. You'll see it as Active here once approved.
     </div>
@@ -634,37 +722,60 @@ async function submitCampaign() {
 
       <button class="nile-btn nile-btn--primary ap-new" @click="openBuilder">+ New campaign</button>
 
+      <!-- Activity over time (impressions vs clicks) -->
+      <figure v-if="chart" class="ap-chart">
+        <figcaption class="ap-chart-cap">
+          <span class="ap-chart-legend"><i class="dot impr"></i>Impressions
+            <b>{{ chart.totalImpr }}</b></span>
+          <span class="ap-chart-legend"><i class="dot clk"></i>Clicks
+            <b>{{ chart.totalClk }}</b></span>
+        </figcaption>
+        <svg :viewBox="`0 0 ${CHART_W} ${CHART_H}`" class="ap-chart-svg" preserveAspectRatio="none" role="img"
+             aria-label="Daily impressions and clicks">
+          <path :d="chart.impr" class="ln impr" />
+          <path :d="chart.clk" class="ln clk" />
+        </svg>
+        <figcaption class="ap-chart-axis">
+          <span>{{ shortDate(chart.first) }}</span><span>{{ shortDate(chart.last) }}</span>
+        </figcaption>
+      </figure>
+
       <p v-if="rows.length === 0" class="ap-center">
         No campaigns yet. Create your first to start reaching Nile audiences.
       </p>
-      <table v-else class="ap-tbl">
-        <thead>
-          <tr><th>Campaign</th><th>Status</th><th>Impr.</th><th>Clicks</th><th>CTR</th><th>Spent</th><th></th></tr>
-        </thead>
-        <tbody>
-          <tr v-for="r in rows" :key="r.campaign_id">
-            <td class="name">
-              {{ r.headline || r.name }}
-              <div v-if="r.status === 'rejected' && r.review_note" class="ap-note-inline">
-                Reviewer: {{ r.review_note }}
-              </div>
-            </td>
-            <td><span class="ap-badge" :class="statusClass(r.status)">{{ statusLabel(r.status) }}</span></td>
-            <td>{{ r.impressions }}</td>
-            <td>{{ r.clicks }}</td>
-            <td>{{ ctr(r) }}</td>
-            <td>{{ money(r.spent_cents) }} / {{ money(r.budget_cents) }}</td>
-            <td class="ap-rowactions">
-              <button v-if="r.status === 'pending_review'" class="ap-link" @click="openEdit(r)">Edit</button>
-              <button
-                v-if="r.status === 'pending_review' || r.status === 'rejected'"
-                class="ap-link ap-danger" :disabled="deletingId === r.campaign_id"
-                @click="deleteCampaign(r)"
-              >{{ deletingId === r.campaign_id ? 'Deleting…' : 'Delete' }}</button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+      <template v-else>
+        <table class="ap-tbl ap-tbl--cards">
+          <thead>
+            <tr><th>Campaign</th><th>Status</th><th>Impr.</th><th>Clicks</th><th>CTR</th><th>Spent</th><th></th></tr>
+          </thead>
+          <tbody>
+            <tr v-for="r in rows" :key="r.campaign_id">
+              <td class="name" data-label="Campaign">
+                {{ r.headline || r.name }}
+                <div v-if="r.status === 'rejected' && r.review_note" class="ap-note-inline">
+                  Reviewer: {{ r.review_note }}
+                </div>
+              </td>
+              <td data-label="Status"><span class="ap-badge" :class="statusClass(r.status)">{{ statusLabel(r.status) }}</span></td>
+              <td data-label="Impr.">{{ r.impressions }}</td>
+              <td data-label="Clicks">{{ r.clicks }}</td>
+              <td data-label="CTR">{{ ctr(r) }}</td>
+              <td data-label="Spent">{{ money(r.spent_cents) }} / {{ money(r.budget_cents) }}</td>
+              <td class="ap-rowactions">
+                <button v-if="r.status === 'pending_review'" class="ap-link" @click="openEdit(r)">Edit</button>
+                <button
+                  v-if="r.status === 'pending_review' || r.status === 'rejected'"
+                  class="ap-link ap-danger" :disabled="deletingId === r.campaign_id"
+                  @click="deleteCampaign(r)"
+                >{{ deletingId === r.campaign_id ? 'Deleting…' : 'Delete' }}</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <button v-if="dashHasMore" class="ap-loadmore" :disabled="loadingMore" @click="loadMoreDash">
+          {{ loadingMore ? 'Loading…' : 'Load more' }}
+        </button>
+      </template>
     </div>
 
     <!-- BUILDER -->
@@ -706,12 +817,13 @@ async function submitCampaign() {
       <input class="ap-input" v-model="clickUrl" type="url" placeholder="https://acme.com/offer" required />
 
       <label class="ap-label">Target topics (optional — none = show to everyone)</label>
-      <div class="ap-chips">
+      <div v-if="topics.length" class="ap-chips">
         <button
           v-for="t in topics" :key="t.id" type="button" class="ap-chip"
           :aria-selected="selectedTopics.has(t.id)" @click="toggleTopic(t.id)"
         >{{ t.name }}</button>
       </div>
+      <p v-else class="ap-note" style="text-align:left">No topics available — your ad will show to everyone.</p>
 
       <template v-if="!editingId">
         <label class="ap-label">Budget</label>
@@ -775,14 +887,14 @@ async function submitCampaign() {
 
       <template v-if="liveRows.length">
         <h3 class="ap-rh" style="margin-top: var(--nile-s-8)">Active & paused</h3>
-        <table class="ap-tbl">
+        <table class="ap-tbl ap-tbl--cards">
           <thead><tr><th>Campaign</th><th>Advertiser</th><th>Status</th><th>Budget</th><th></th></tr></thead>
           <tbody>
             <tr v-for="r in liveRows" :key="r.id">
-              <td class="name">{{ r.ad_creatives?.[0]?.headline ?? r.name }}</td>
-              <td>{{ r.advertiser_accounts?.name ?? 'Host boost' }}</td>
-              <td><span class="ap-badge" :class="statusClass(r.status)">{{ statusLabel(r.status) }}</span></td>
-              <td>{{ money(r.budget_cents) }}</td>
+              <td class="name" data-label="Campaign">{{ r.ad_creatives?.[0]?.headline ?? r.name }}</td>
+              <td data-label="Advertiser">{{ r.advertiser_accounts?.name ?? 'Host boost' }}</td>
+              <td data-label="Status"><span class="ap-badge" :class="statusClass(r.status)">{{ statusLabel(r.status) }}</span></td>
+              <td data-label="Budget">{{ money(r.budget_cents) }}</td>
               <td class="ap-rowactions">
                 <button class="ap-link" @click="openDetail(r)">View</button>
                 <button class="ap-link" :disabled="!!actingOn" @click="act(r, r.status === 'active' ? 'pause' : 'resume')">
@@ -793,6 +905,10 @@ async function submitCampaign() {
           </tbody>
         </table>
       </template>
+
+      <button v-if="adminHasMore" class="ap-loadmore" :disabled="loadingMore" @click="loadMoreAdmin">
+        {{ loadingMore ? 'Loading…' : 'Load more' }}
+      </button>
     </div>
 
     <!-- ADMIN DETAIL MODAL (read-only; approve/reject/pause/resume in-place) -->
@@ -950,4 +1066,64 @@ async function submitCampaign() {
   text-transform: uppercase; letter-spacing: 0.04em; padding-top: 2px; }
 .ap-dl dd { margin: 0; color: var(--nile-txt-secondary); overflow-wrap: anywhere; }
 .ap-dl a { color: var(--nile-txt-secondary); }
+
+/* Retry affordance inside the error banner */
+.ap-msg.ap-err { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.ap-retry { flex: none; background: none; border: 1px solid rgba(239, 68, 68, 0.4);
+  color: #fca5a5; border-radius: var(--nile-r-sm); padding: 4px 12px; font-size: 13px;
+  cursor: pointer; font-family: inherit; }
+
+/* Load more */
+.ap-loadmore { display: block; width: 100%; margin-top: var(--nile-s-4);
+  background: var(--nile-bg-raised); border: 1px solid var(--nile-border);
+  color: var(--nile-txt-primary); border-radius: var(--nile-r-md); padding: 12px;
+  font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit; }
+.ap-loadmore:disabled { opacity: 0.6; cursor: default; }
+
+/* Activity chart */
+.ap-chart { margin: 0 0 var(--nile-s-6); }
+.ap-chart-cap { display: flex; gap: var(--nile-s-5); margin: 0 0 var(--nile-s-2); font-size: 12px; color: var(--nile-txt-secondary); }
+.ap-chart-legend { display: inline-flex; align-items: center; gap: 6px; }
+.ap-chart-legend b { color: var(--nile-txt-primary); }
+.ap-chart-legend .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.dot.impr { background: var(--nile-volt); }
+.dot.clk { background: var(--nile-coral); }
+.ap-chart-svg { width: 100%; height: 120px; display: block; }
+.ap-chart-svg .ln { fill: none; stroke-width: 2; vector-effect: non-scaling-stroke; }
+.ap-chart-svg .ln.impr { stroke: var(--nile-volt); }
+.ap-chart-svg .ln.clk { stroke: var(--nile-coral); }
+.ap-chart-axis { display: flex; justify-content: space-between; margin-top: 4px;
+  font-size: 11px; color: var(--nile-txt-tertiary); }
+
+/* ── Responsive: phones (≤480px) ─────────────────────────────────────────── */
+@media (max-width: 480px) {
+  .ap-card { padding: var(--nile-s-5); }
+  .ap-h { font-size: 21px; }
+  .ap-top { flex-wrap: wrap; gap: var(--nile-s-3); }
+  .ap-actions { flex-wrap: wrap; }
+  .ap-new { width: 100%; text-align: center; }
+  .ap-grid { gap: 8px; }
+  .ap-opt { padding: 13px 6px; font-size: 15px; }
+  .ap-modal { padding: var(--nile-s-5); }
+  .ap-dl div { flex-direction: column; gap: 2px; }
+  .ap-dl dt { width: auto; }
+  .ap-rbtns { flex-wrap: wrap; }
+  .ap-rbtns .nile-btn, .ap-reject { flex: 1 1 auto; text-align: center; }
+
+  /* Campaign / live tables collapse to stacked cards */
+  .ap-tbl--cards, .ap-tbl--cards thead, .ap-tbl--cards tbody,
+  .ap-tbl--cards tr, .ap-tbl--cards td { display: block; width: 100%; }
+  .ap-tbl--cards thead { position: absolute; left: -9999px; }
+  .ap-tbl--cards tr { border: 1px solid var(--nile-border);
+    border-radius: var(--nile-r-md); padding: var(--nile-s-3) var(--nile-s-4);
+    margin-bottom: var(--nile-s-3); }
+  .ap-tbl--cards td { border: none; padding: 6px 0;
+    display: flex; justify-content: space-between; gap: 12px; text-align: right; }
+  .ap-tbl--cards td[data-label]::before { content: attr(data-label);
+    color: var(--nile-txt-tertiary); font-size: 12px; text-transform: uppercase;
+    letter-spacing: 0.04em; text-align: left; flex: none; }
+  .ap-tbl--cards td.name { justify-content: flex-start; text-align: left; font-size: 15px; }
+  .ap-tbl--cards td.name::before { display: none; }
+  .ap-tbl--cards td.ap-rowactions { justify-content: flex-end; }
+}
 </style>

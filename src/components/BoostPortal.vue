@@ -193,4 +193,11 @@ async function checkout() {
   font-size: 18px; font-weight: 600; color: var(--nile-txt-primary); font-family: inherit;
   transition: border-color .15s, background .15s; }
 .bp-opt[aria-selected='true'] { border-color: var(--nile-volt); background: rgba(200, 255, 0, 0.08); }
+
+@media (max-width: 480px) {
+  .bp-h { font-size: 22px; }
+  .bp-grid { gap: 8px; }
+  .bp-opt { padding: 13px 6px; font-size: 16px; }
+  .bp-event { padding: var(--nile-s-3); }
+}
 </style>

@@ -9,10 +9,16 @@ export default defineConfig({
   site: "https://joinnile.com",
   output: "static",
   integrations: [vue(), sitemap()],
-  // VITE_CACHE_DIR lets a build redirect Vite's dep-optimizer cache off the
-  // project dir (used only in sandboxed CI where the mount rejects cache
-  // unlinks). Unset in normal builds → Vite's default node_modules/.vite.
-  ...(process.env.VITE_CACHE_DIR
-    ? { vite: { cacheDir: process.env.VITE_CACHE_DIR } }
-    : {}),
+  vite: {
+    // Pin CSS minification to classic syntax for older iOS Safari. Without a
+    // target, the minifier rewrites every `max-width`/`min-width` query to
+    // Media Queries L4 range syntax (`@media (width<=480px)`), which iOS
+    // Safari <16.4 doesn't parse — it drops the whole query, so all responsive
+    // styles silently vanish on older iPhones.
+    build: { cssTarget: ["safari13", "ios13", "chrome90", "firefox90"] },
+    // VITE_CACHE_DIR redirects Vite's dep-optimizer cache off the project dir
+    // (sandboxed CI where the mount rejects cache unlinks). Unset in normal
+    // builds → Vite's default node_modules/.vite.
+    ...(process.env.VITE_CACHE_DIR ? { cacheDir: process.env.VITE_CACHE_DIR } : {}),
+  },
 });
