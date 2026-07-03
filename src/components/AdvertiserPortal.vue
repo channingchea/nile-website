@@ -7,8 +7,13 @@
     auth   → email+password sign up / sign in (separate from the app's social login)
     setup  → brand name, contact email, optional Nile-profile link
     dash   → list campaigns + reporting (get_advertiser_performance RPC)
-    build  → new campaign: image upload → ad-creatives, creative form, topics,
-             budget/duration → create-ad-payment (standalone) → Stripe Checkout
+    build  → new campaign: image upload (manual 4:3 crop) → ad-creatives,
+             creative form, topics, budget/duration → create-ad-payment
+             (standalone) → Stripe Checkout. Also doubles as the EDIT form for
+             campaigns still in pending_review (migration 0038 allows client
+             UPDATE on ad_creatives/ad_targeting only in that status); edits
+             save directly — budget/duration stay locked since the Stripe
+             authorization already exists.
     admin  → review queue (Part 3): users in the `admins` table (migration 0032)
              see pending_review campaigns with creative preview and
              approve / reject (+ pause/resume on active/paused). Actions call
@@ -40,6 +45,7 @@ type Topic = { id: string; name: string };
 type Row = {
   campaign_id: string; name: string; headline: string | null; status: string;
   budget_cents: number; spent_cents: number; impressions: number; clicks: number;
+  review_note: string | null;
 };
 
 const sb = supabase();
@@ -63,7 +69,7 @@ const profileUsername = ref("");
 // dashboard
 const rows = ref<Row[]>([]);
 
-// builder
+// builder (create + edit-while-in-review)
 const topics = ref<Topic[]>([]);
 const selectedTopics = ref<Set<string>>(new Set());
 const file = ref<File | null>(null);
@@ -73,6 +79,85 @@ const body = ref("");
 const clickUrl = ref("");
 const budgetCents = ref(2500);
 const durationDays = ref(7);
+const editingId = ref<string | null>(null); // pending_review campaign being edited
+const existingImageUrl = ref(""); // current creative image when editing
+
+// cropper — pan/zoom the picked image inside a fixed 4:3 frame, export 1200×900
+const cropSrc = ref("");
+const cropZoom = ref(1);
+const cropPos = ref({ x: 0, y: 0 });
+const cropFrame = ref<HTMLElement | null>(null);
+const cropImgEl = ref<HTMLImageElement | null>(null);
+const nat = ref({ w: 0, h: 0 });
+const frameW = ref(0);
+let drag: { x: number; y: number; px: number; py: number } | null = null;
+let cropName = "creative.jpg";
+
+const cropScale = computed(() =>
+  frameW.value && nat.value.w
+    ? Math.max(frameW.value / nat.value.w, (frameW.value * 0.75) / nat.value.h) * cropZoom.value
+    : 1,
+);
+const cropStyle = computed(() => ({
+  width: `${nat.value.w * cropScale.value}px`,
+  transform: `translate(${cropPos.value.x}px, ${cropPos.value.y}px)`,
+}));
+
+function clampPos(x: number, y: number) {
+  const s = cropScale.value, w = frameW.value, h = w * 0.75;
+  return {
+    x: Math.min(0, Math.max(w - nat.value.w * s, x)),
+    y: Math.min(0, Math.max(h - nat.value.h * s, y)),
+  };
+}
+function onCropImgLoad() {
+  const img = cropImgEl.value!;
+  nat.value = { w: img.naturalWidth, h: img.naturalHeight };
+  frameW.value = cropFrame.value!.clientWidth;
+  cropZoom.value = 1;
+  cropPos.value = clampPos(
+    (frameW.value - nat.value.w * cropScale.value) / 2,
+    (frameW.value * 0.75 - nat.value.h * cropScale.value) / 2,
+  );
+}
+function onZoom(e: Event) {
+  // Re-clamp while keeping the frame centre fixed.
+  const w = frameW.value, h = w * 0.75, sOld = cropScale.value;
+  const cx = (w / 2 - cropPos.value.x) / sOld;
+  const cy = (h / 2 - cropPos.value.y) / sOld;
+  cropZoom.value = Number((e.target as HTMLInputElement).value);
+  const s = cropScale.value;
+  cropPos.value = clampPos(w / 2 - cx * s, h / 2 - cy * s);
+}
+function cropDown(e: PointerEvent) {
+  drag = { x: e.clientX, y: e.clientY, px: cropPos.value.x, py: cropPos.value.y };
+  (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+}
+function cropMove(e: PointerEvent) {
+  if (drag) cropPos.value = clampPos(drag.px + e.clientX - drag.x, drag.py + e.clientY - drag.y);
+}
+function cropUp() { drag = null; }
+function cancelCrop() {
+  URL.revokeObjectURL(cropSrc.value);
+  cropSrc.value = "";
+}
+async function applyCrop() {
+  const s = cropScale.value;
+  const canvas = document.createElement("canvas");
+  canvas.width = 1200;
+  canvas.height = 900;
+  canvas.getContext("2d")!.drawImage(
+    cropImgEl.value!,
+    -cropPos.value.x / s, -cropPos.value.y / s, frameW.value / s, (frameW.value * 0.75) / s,
+    0, 0, 1200, 900,
+  );
+  const blob = await new Promise<Blob | null>((r) => canvas.toBlob(r, "image/jpeg", 0.9));
+  if (!blob) { msg.value = "Couldn't crop that image — try another file."; return; }
+  file.value = new File([blob], cropName, { type: "image/jpeg" });
+  if (previewUrl.value) URL.revokeObjectURL(previewUrl.value);
+  previewUrl.value = URL.createObjectURL(file.value);
+  cancelCrop();
+}
 
 // Stripe Checkout return (review finding #11): show a success banner and
 // poll the campaign row until the webhook flips it out of pending_payment,
@@ -81,8 +166,14 @@ const returnBanner = ref(false);
 let returnCampaignId: string | null = null;
 let pollTimer: ReturnType<typeof setInterval> | null = null;
 
-onMounted(boot);
-onUnmounted(() => { if (pollTimer) clearInterval(pollTimer); });
+onMounted(() => {
+  boot();
+  window.addEventListener("keydown", onKey);
+});
+onUnmounted(() => {
+  if (pollTimer) clearInterval(pollTimer);
+  window.removeEventListener("keydown", onKey);
+});
 
 async function boot() {
   const params = new URLSearchParams(window.location.search);
@@ -215,6 +306,34 @@ async function openDashboard() {
   view.value = "dash";
   startCheckoutPoll();
 }
+// Withdraw (hard-delete) an in-review or rejected ad. Server-side: the
+// review-ad-campaign fn cancels the card hold (in-review only), then deletes
+// the campaign + creative image.
+const deletingId = ref("");
+async function deleteCampaign(r: Row) {
+  const holdNote = r.status === "pending_review" ? " The card hold will be released." : "";
+  if (!confirm(`Delete “${r.headline || r.name}”?${holdNote} This can't be undone.`)) return;
+  msg.value = "";
+  deletingId.value = r.campaign_id;
+  try {
+    const { data: sess } = await sb.auth.getSession();
+    const res = await fetch(REVIEW_AD_CAMPAIGN_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${sess.session?.access_token}`,
+      },
+      body: JSON.stringify({ campaign_id: r.campaign_id, action: "withdraw" }),
+    });
+    const out = await res.json();
+    if (!res.ok) throw new Error(out.error || "Delete failed");
+    await openDashboard();
+  } catch (e: any) {
+    msg.value = String(e?.message || e);
+  } finally {
+    deletingId.value = "";
+  }
+}
 async function signOut() {
   await sb.auth.signOut();
   account.value = null;
@@ -252,6 +371,26 @@ const queue = ref<AdminRow[]>([]);
 const topicNames = ref<Record<string, string>>({});
 const actingOn = ref("");
 
+// Read-only detail modal (any admin row); reject happens here with an
+// optional reason that's stored on the campaign and shown to the advertiser.
+const detail = ref<AdminRow | null>(null);
+const rejectMode = ref(false);
+const rejectNote = ref("");
+function openDetail(r: AdminRow, reject = false) {
+  detail.value = r;
+  rejectMode.value = reject;
+  rejectNote.value = "";
+}
+function closeDetail() {
+  detail.value = null;
+  rejectMode.value = false;
+  rejectNote.value = "";
+}
+function onKey(e: KeyboardEvent) {
+  if (e.key === "Escape") closeDetail();
+}
+const fmtDate = (s: string) => new Date(s).toLocaleDateString();
+
 async function openAdmin() {
   msg.value = "";
   view.value = "loading";
@@ -277,8 +416,7 @@ function topicsFor(r: AdminRow) {
   return ids.map((id) => topicNames.value[id] ?? "?").join(", ");
 }
 
-async function act(r: AdminRow, action: "approve" | "reject" | "pause" | "resume") {
-  if (action === "reject" && !confirm(`Reject “${r.ad_creatives?.[0]?.headline ?? r.name}”? The payment authorization will be cancelled.`)) return;
+async function act(r: AdminRow, action: "approve" | "reject" | "pause" | "resume", note?: string) {
   msg.value = "";
   actingOn.value = r.id + action;
   try {
@@ -289,10 +427,15 @@ async function act(r: AdminRow, action: "approve" | "reject" | "pause" | "resume
         "Content-Type": "application/json",
         Authorization: `Bearer ${sess.session?.access_token}`,
       },
-      body: JSON.stringify({ campaign_id: r.id, action }),
+      body: JSON.stringify({
+        campaign_id: r.id,
+        action,
+        ...(note?.trim() ? { note: note.trim() } : {}),
+      }),
     });
     const out = await res.json();
     if (!res.ok) throw new Error(out.error || "Action failed");
+    closeDetail();
     await openAdmin();
   } catch (e: any) {
     msg.value = String(e?.message || e);
@@ -302,11 +445,50 @@ async function act(r: AdminRow, action: "approve" | "reject" | "pause" | "resume
 }
 
 // ── builder ─────────────────────────────────────────────────────────────────
+function resetBuilder() {
+  editingId.value = null;
+  existingImageUrl.value = "";
+  file.value = null;
+  previewUrl.value = "";
+  headline.value = "";
+  body.value = "";
+  clickUrl.value = "";
+  selectedTopics.value = new Set();
+  budgetCents.value = 2500;
+  durationDays.value = 7;
+  cropSrc.value = "";
+}
+async function loadTopics() {
+  const { data } = await sb.from("topics").select("id, name").eq("is_active", true).order("sort_order");
+  topics.value = (data as Topic[]) ?? [];
+}
 async function openBuilder() {
   msg.value = "";
   view.value = "loading";
-  const { data } = await sb.from("topics").select("id, name").eq("is_active", true).order("sort_order");
-  topics.value = (data as Topic[]) ?? [];
+  resetBuilder();
+  await loadTopics();
+  view.value = "build";
+}
+// Edit a campaign that's still pending_review: prefill the builder from the
+// existing creative + targeting; saving updates those rows in place.
+async function openEdit(r: Row) {
+  msg.value = "";
+  view.value = "loading";
+  resetBuilder();
+  const [, { data: cr }, { data: tg }] = await Promise.all([
+    loadTopics(),
+    sb.from("ad_creatives").select("image_url, headline, body, click_url")
+      .eq("campaign_id", r.campaign_id).maybeSingle(),
+    sb.from("ad_targeting").select("topic_ids")
+      .eq("campaign_id", r.campaign_id).maybeSingle(),
+  ]);
+  if (!cr) { msg.value = "Couldn't load this ad."; view.value = "dash"; return; }
+  headline.value = cr.headline ?? "";
+  body.value = cr.body ?? "";
+  clickUrl.value = cr.click_url ?? "";
+  existingImageUrl.value = cr.image_url ?? "";
+  selectedTopics.value = new Set((tg?.topic_ids as string[]) ?? []);
+  editingId.value = r.campaign_id;
   view.value = "build";
 }
 function toggleTopic(id: string) {
@@ -316,28 +498,57 @@ function toggleTopic(id: string) {
 }
 function onFile(e: Event) {
   msg.value = "";
-  const f = (e.target as HTMLInputElement).files?.[0] ?? null;
-  if (f && f.size > MAX_BYTES) { msg.value = "Image must be under 5MB."; file.value = null; previewUrl.value = ""; return; }
-  file.value = f;
-  previewUrl.value = f ? URL.createObjectURL(f) : "";
+  const input = e.target as HTMLInputElement;
+  const f = input.files?.[0];
+  input.value = ""; // allow re-picking the same file
+  if (!f) return;
+  if (f.size > MAX_BYTES) { msg.value = "Image must be under 5MB."; return; }
+  cropName = f.name.replace(/\.[^.]+$/, "") + ".jpg";
+  cropSrc.value = URL.createObjectURL(f);
+}
+// Upload under the account folder so the bucket RLS insert policy
+// (path segment = owned account id) passes.
+async function uploadCreative(): Promise<string> {
+  const path = `${account.value!.id}/${crypto.randomUUID()}.jpg`;
+  const { error } = await sb.storage
+    .from("ad-creatives")
+    .upload(path, file.value!, { contentType: file.value!.type, upsert: false });
+  if (error) throw error;
+  return sb.storage.from("ad-creatives").getPublicUrl(path).data.publicUrl;
 }
 async function submitCampaign() {
   msg.value = "";
-  if (!file.value) { msg.value = "Add a creative image."; return; }
+  if (cropSrc.value) { msg.value = "Finish cropping the image first."; return; }
+  if (!file.value && !editingId.value) { msg.value = "Add a creative image."; return; }
   try { const u = new URL(clickUrl.value); if (u.protocol !== "https:") throw 0; }
   catch { msg.value = "Click URL must start with https://"; return; }
 
   busy.value = true;
   try {
-    // 1) Upload the creative under the account folder so the bucket RLS insert
-    //    policy (path segment = owned account id) passes.
-    const ext = (file.value.name.split(".").pop() || "jpg").toLowerCase();
-    const path = `${account.value!.id}/${crypto.randomUUID()}.${ext}`;
-    const { error: upErr } = await sb.storage
-      .from("ad-creatives")
-      .upload(path, file.value, { contentType: file.value.type, upsert: false });
-    if (upErr) throw upErr;
-    const { data: pub } = sb.storage.from("ad-creatives").getPublicUrl(path);
+    // EDIT: update creative + targeting in place (RLS allows this only while
+    // the campaign is pending_review). No payment change — budget is locked.
+    if (editingId.value) {
+      const imageUrl = file.value ? await uploadCreative() : existingImageUrl.value;
+      const { error: crErr } = await sb.from("ad_creatives")
+        .update({
+          image_url: imageUrl,
+          headline: headline.value.trim(),
+          body: body.value.trim(),
+          click_url: clickUrl.value.trim(),
+        })
+        .eq("campaign_id", editingId.value);
+      if (crErr) throw crErr;
+      const { error: tgErr } = await sb.from("ad_targeting")
+        .upsert({ campaign_id: editingId.value, topic_ids: [...selectedTopics.value] });
+      if (tgErr) throw tgErr;
+      busy.value = false;
+      await openDashboard();
+      return;
+    }
+
+    // CREATE:
+    // 1) Upload the creative image.
+    const publicUrl = await uploadCreative();
 
     // 2) Function (service role) creates campaign+creative+targeting, returns Checkout URL.
     const { data: sess } = await sb.auth.getSession();
@@ -349,7 +560,7 @@ async function submitCampaign() {
       },
       body: JSON.stringify({
         advertiser_account_id: account.value!.id,
-        image_url: pub.publicUrl,
+        image_url: publicUrl,
         headline: headline.value.trim(),
         body: body.value.trim(),
         click_url: clickUrl.value.trim(),
@@ -428,16 +639,29 @@ async function submitCampaign() {
       </p>
       <table v-else class="ap-tbl">
         <thead>
-          <tr><th>Campaign</th><th>Status</th><th>Impr.</th><th>Clicks</th><th>CTR</th><th>Spent</th></tr>
+          <tr><th>Campaign</th><th>Status</th><th>Impr.</th><th>Clicks</th><th>CTR</th><th>Spent</th><th></th></tr>
         </thead>
         <tbody>
           <tr v-for="r in rows" :key="r.campaign_id">
-            <td class="name">{{ r.headline || r.name }}</td>
+            <td class="name">
+              {{ r.headline || r.name }}
+              <div v-if="r.status === 'rejected' && r.review_note" class="ap-note-inline">
+                Reviewer: {{ r.review_note }}
+              </div>
+            </td>
             <td><span class="ap-badge" :class="statusClass(r.status)">{{ statusLabel(r.status) }}</span></td>
             <td>{{ r.impressions }}</td>
             <td>{{ r.clicks }}</td>
             <td>{{ ctr(r) }}</td>
             <td>{{ money(r.spent_cents) }} / {{ money(r.budget_cents) }}</td>
+            <td class="ap-rowactions">
+              <button v-if="r.status === 'pending_review'" class="ap-link" @click="openEdit(r)">Edit</button>
+              <button
+                v-if="r.status === 'pending_review' || r.status === 'rejected'"
+                class="ap-link ap-danger" :disabled="deletingId === r.campaign_id"
+                @click="deleteCampaign(r)"
+              >{{ deletingId === r.campaign_id ? 'Deleting…' : 'Delete' }}</button>
+            </td>
           </tr>
         </tbody>
       </table>
@@ -446,13 +670,31 @@ async function submitCampaign() {
     <!-- BUILDER -->
     <form v-else-if="view === 'build'" class="ap-card" @submit.prevent="submitCampaign">
       <div class="ap-top">
-        <h2 class="ap-h" style="margin:0">New campaign</h2>
+        <h2 class="ap-h" style="margin:0">{{ editingId ? 'Edit campaign' : 'New campaign' }}</h2>
         <button type="button" class="ap-link" @click="openDashboard">Cancel</button>
       </div>
 
-      <label class="ap-label">Creative image (shown 4:3 in feed, max 5MB)</label>
+      <label class="ap-label">
+        Creative image (shown 4:3 in feed, max 5MB{{ editingId ? ' — leave as-is to keep current' : '' }})
+      </label>
       <input class="ap-input" type="file" accept="image/*" @change="onFile" />
-      <img v-if="previewUrl" :src="previewUrl" class="ap-preview" alt="" />
+
+      <!-- 4:3 cropper: drag to position, slide to zoom -->
+      <div v-if="cropSrc" class="ap-crop">
+        <div
+          ref="cropFrame" class="ap-crop-frame"
+          @pointerdown="cropDown" @pointermove="cropMove"
+          @pointerup="cropUp" @pointercancel="cropUp"
+        >
+          <img ref="cropImgEl" :src="cropSrc" :style="cropStyle" draggable="false" alt="" @load="onCropImgLoad" />
+        </div>
+        <input class="ap-crop-zoom" type="range" min="1" max="3" step="0.01" :value="cropZoom" aria-label="Zoom" @input="onZoom" />
+        <div class="ap-rbtns">
+          <button type="button" class="nile-btn nile-btn--primary" @click="applyCrop">Apply crop</button>
+          <button type="button" class="ap-link" @click="cancelCrop">Cancel</button>
+        </div>
+      </div>
+      <img v-else-if="previewUrl || existingImageUrl" :src="previewUrl || existingImageUrl" class="ap-preview" alt="" />
 
       <label class="ap-label">Headline ({{ headline.length }}/{{ HEADLINE_MAX }})</label>
       <input class="ap-input" v-model="headline" :maxlength="HEADLINE_MAX" placeholder="Fresh roast, delivered weekly" required />
@@ -471,22 +713,28 @@ async function submitCampaign() {
         >{{ t.name }}</button>
       </div>
 
-      <label class="ap-label">Budget</label>
-      <div class="ap-grid">
-        <button v-for="b in BUDGETS" :key="b.cents" type="button" class="ap-opt"
-                :aria-selected="budgetCents === b.cents" @click="budgetCents = b.cents">{{ b.label }}</button>
-      </div>
+      <template v-if="!editingId">
+        <label class="ap-label">Budget</label>
+        <div class="ap-grid">
+          <button v-for="b in BUDGETS" :key="b.cents" type="button" class="ap-opt"
+                  :aria-selected="budgetCents === b.cents" @click="budgetCents = b.cents">{{ b.label }}</button>
+        </div>
 
-      <label class="ap-label">Duration</label>
-      <div class="ap-grid">
-        <button v-for="d in DURATIONS" :key="d.days" type="button" class="ap-opt"
-                :aria-selected="durationDays === d.days" @click="durationDays = d.days">{{ d.label }}</button>
-      </div>
+        <label class="ap-label">Duration</label>
+        <div class="ap-grid">
+          <button v-for="d in DURATIONS" :key="d.days" type="button" class="ap-opt"
+                  :aria-selected="durationDays === d.days" @click="durationDays = d.days">{{ d.label }}</button>
+        </div>
+      </template>
 
       <button class="nile-btn nile-btn--primary ap-full" type="submit" :disabled="busy">
-        {{ busy ? 'Setting up…' : 'Continue to payment' }}
+        {{ busy ? (editingId ? 'Saving…' : 'Setting up…') : (editingId ? 'Save changes' : 'Continue to payment') }}
       </button>
-      <p class="ap-note">
+      <p class="ap-note" v-if="editingId">
+        Your ad stays in review after saving — budget and duration can't change
+        because your card is already authorized.
+      </p>
+      <p class="ap-note" v-else>
         You'll pay securely via Stripe. Your card is only authorized now — it's
         charged when your ad is approved, and the hold is released if it isn't.
       </p>
@@ -507,8 +755,8 @@ async function submitCampaign() {
 
       <p v-if="pendingRows.length === 0" class="ap-center">Nothing awaiting review.</p>
       <div v-for="r in pendingRows" :key="r.id" class="ap-review">
-        <img v-if="r.ad_creatives?.[0]" :src="r.ad_creatives[0].image_url" class="ap-preview" alt="" />
-        <h3 class="ap-rh">{{ r.ad_creatives?.[0]?.headline ?? r.name }}</h3>
+        <img v-if="r.ad_creatives?.[0]" :src="r.ad_creatives[0].image_url" class="ap-preview ap-clickable" alt="" @click="openDetail(r)" />
+        <h3 class="ap-rh ap-clickable" @click="openDetail(r)">{{ r.ad_creatives?.[0]?.headline ?? r.name }}</h3>
         <p class="ap-rb">{{ r.ad_creatives?.[0]?.body }}</p>
         <p class="ap-rmeta">
           <span>{{ r.advertiser_accounts?.name }} ({{ r.advertiser_accounts?.contact_email }})</span> ·
@@ -520,9 +768,8 @@ async function submitCampaign() {
           <button class="nile-btn nile-btn--primary" :disabled="actingOn === r.id + 'approve'" @click="act(r, 'approve')">
             {{ actingOn === r.id + 'approve' ? 'Approving…' : 'Approve & charge' }}
           </button>
-          <button class="ap-reject" :disabled="actingOn === r.id + 'reject'" @click="act(r, 'reject')">
-            {{ actingOn === r.id + 'reject' ? 'Rejecting…' : 'Reject' }}
-          </button>
+          <button class="ap-reject" @click="openDetail(r, true)">Reject…</button>
+          <button type="button" class="ap-link" @click="openDetail(r)">View details</button>
         </div>
       </div>
 
@@ -536,7 +783,8 @@ async function submitCampaign() {
               <td>{{ r.advertiser_accounts?.name ?? 'Host boost' }}</td>
               <td><span class="ap-badge" :class="statusClass(r.status)">{{ statusLabel(r.status) }}</span></td>
               <td>{{ money(r.budget_cents) }}</td>
-              <td>
+              <td class="ap-rowactions">
+                <button class="ap-link" @click="openDetail(r)">View</button>
                 <button class="ap-link" :disabled="!!actingOn" @click="act(r, r.status === 'active' ? 'pause' : 'resume')">
                   {{ r.status === 'active' ? 'Pause' : 'Resume' }}
                 </button>
@@ -545,6 +793,54 @@ async function submitCampaign() {
           </tbody>
         </table>
       </template>
+    </div>
+
+    <!-- ADMIN DETAIL MODAL (read-only; approve/reject/pause/resume in-place) -->
+    <div v-if="detail" class="ap-overlay" @click.self="closeDetail">
+      <div class="ap-modal" role="dialog" aria-modal="true">
+        <div class="ap-top">
+          <h3 class="ap-rh" style="margin:0">{{ detail.ad_creatives?.[0]?.headline ?? detail.name }}</h3>
+          <button type="button" class="ap-x" aria-label="Close" @click="closeDetail">×</button>
+        </div>
+        <img v-if="detail.ad_creatives?.[0]" :src="detail.ad_creatives[0].image_url" class="ap-preview" alt="" />
+        <p v-if="detail.ad_creatives?.[0]?.body" class="ap-rb">{{ detail.ad_creatives[0].body }}</p>
+        <dl class="ap-dl">
+          <div><dt>Advertiser</dt><dd>{{ detail.advertiser_accounts?.name ?? 'Host boost' }}<template v-if="detail.advertiser_accounts"> ({{ detail.advertiser_accounts.contact_email }})</template></dd></div>
+          <div><dt>Status</dt><dd><span class="ap-badge" :class="statusClass(detail.status)">{{ statusLabel(detail.status) }}</span></dd></div>
+          <div><dt>Budget</dt><dd>{{ money(detail.budget_cents) }}</dd></div>
+          <div><dt>Flight</dt><dd>{{ fmtDate(detail.starts_at) }} – {{ fmtDate(detail.ends_at) }}</dd></div>
+          <div><dt>Topics</dt><dd>{{ topicsFor(detail) }}</dd></div>
+          <div v-if="detail.ad_creatives?.[0]"><dt>Click URL</dt><dd><a :href="detail.ad_creatives[0].click_url" target="_blank" rel="noopener noreferrer">{{ detail.ad_creatives[0].click_url }}</a></dd></div>
+          <div><dt>Submitted</dt><dd>{{ fmtDate(detail.created_at) }}</dd></div>
+        </dl>
+
+        <template v-if="detail.status === 'pending_review'">
+          <div v-if="!rejectMode" class="ap-rbtns">
+            <button class="nile-btn nile-btn--primary" :disabled="actingOn === detail.id + 'approve'" @click="act(detail, 'approve')">
+              {{ actingOn === detail.id + 'approve' ? 'Approving…' : 'Approve & charge' }}
+            </button>
+            <button class="ap-reject" @click="rejectMode = true">Reject…</button>
+          </div>
+          <template v-else>
+            <label class="ap-label">Reason (optional — shared with the advertiser)</label>
+            <textarea
+              class="ap-input ap-textarea" v-model="rejectNote" maxlength="300"
+              placeholder="e.g. Image quality is too low, or the landing page doesn't match the ad."
+            ></textarea>
+            <div class="ap-rbtns">
+              <button class="ap-reject" :disabled="actingOn === detail.id + 'reject'" @click="act(detail, 'reject', rejectNote)">
+                {{ actingOn === detail.id + 'reject' ? 'Rejecting…' : 'Confirm reject' }}
+              </button>
+              <button type="button" class="ap-link" @click="rejectMode = false">Back</button>
+            </div>
+          </template>
+        </template>
+        <div v-else class="ap-rbtns">
+          <button class="nile-btn nile-btn--primary" :disabled="!!actingOn" @click="act(detail, detail.status === 'active' ? 'pause' : 'resume')">
+            {{ detail.status === 'active' ? 'Pause' : 'Resume' }}
+          </button>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -593,6 +889,17 @@ async function submitCampaign() {
 }
 .ap-chip[aria-selected='true'] { border-color: var(--nile-volt); background: rgba(200, 255, 0, 0.08); }
 
+.ap-crop { margin-bottom: var(--nile-s-4); }
+.ap-crop-frame {
+  width: 100%; aspect-ratio: 4 / 3; position: relative; overflow: hidden;
+  border-radius: var(--nile-r-md); border: 1px solid var(--nile-volt);
+  background: var(--nile-bg-raised); cursor: grab; touch-action: none;
+}
+.ap-crop-frame:active { cursor: grabbing; }
+.ap-crop-frame img { position: absolute; top: 0; left: 0; max-width: none;
+  user-select: none; pointer-events: none; }
+.ap-crop-zoom { width: 100%; margin: var(--nile-s-3) 0; accent-color: var(--nile-volt); }
+
 .ap-preview { width: 100%; aspect-ratio: 4 / 3; object-fit: cover;
   border-radius: var(--nile-r-md); border: 1px solid var(--nile-border);
   margin-bottom: var(--nile-s-4); background: var(--nile-bg-raised); }
@@ -620,4 +927,27 @@ async function submitCampaign() {
 .ap-reject { background: rgba(239, 68, 68, 0.12); color: #fca5a5;
   border: 1px solid rgba(239, 68, 68, 0.3); border-radius: var(--nile-r-md);
   padding: 10px 18px; font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit; }
+
+.ap-clickable { cursor: pointer; }
+.ap-danger { color: #fca5a5; }
+.ap-rowactions { white-space: nowrap; }
+.ap-rowactions .ap-link + .ap-link { margin-left: 12px; }
+.ap-note-inline { color: var(--nile-txt-tertiary); font-size: 12px; font-weight: 400;
+  margin-top: 4px; line-height: 1.4; max-width: 340px; }
+
+.ap-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+  display: flex; align-items: center; justify-content: center;
+  padding: var(--nile-s-4); z-index: 50; }
+.ap-modal { background: var(--nile-bg-surface); border: 1px solid var(--nile-border);
+  border-radius: var(--nile-r-lg); padding: var(--nile-s-6); width: 100%;
+  max-width: 520px; max-height: 90vh; overflow-y: auto; }
+.ap-x { background: none; border: none; color: var(--nile-txt-secondary);
+  font-size: 24px; line-height: 1; cursor: pointer; padding: 0 4px; font-family: inherit; }
+.ap-dl { display: grid; gap: 8px; margin: 0 0 var(--nile-s-5); font-size: 14px; }
+.ap-dl div { display: flex; gap: 10px; }
+.ap-dl dt { flex: none; width: 92px; color: var(--nile-txt-tertiary); font-size: 12px;
+  text-transform: uppercase; letter-spacing: 0.04em; padding-top: 2px; }
+.ap-dl dd { margin: 0; color: var(--nile-txt-secondary); overflow-wrap: anywhere; }
+.ap-dl a { color: var(--nile-txt-secondary); }
 </style>
