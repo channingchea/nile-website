@@ -962,10 +962,13 @@ async function submitCampaign() {
 </template>
 
 <style scoped>
-.ap { max-width: 520px; margin: 0 auto; font-family: var(--nile-font-body); color: var(--nile-txt-primary); }
-.ap-wide { max-width: 760px; }
+/* Wrapper is wide enough for the dashboard/admin tables; narrow forms (auth,
+   setup, builder) stay capped + centered via .ap-card below. */
+.ap { max-width: 880px; margin: 0 auto; font-family: var(--nile-font-body); color: var(--nile-txt-primary); }
 .ap-card { background: var(--nile-bg-surface); border: 1px solid var(--nile-border);
-  border-radius: var(--nile-r-lg); padding: var(--nile-s-8); }
+  border-radius: var(--nile-r-lg); padding: var(--nile-s-8);
+  max-width: 520px; margin-left: auto; margin-right: auto; }
+.ap-wide { max-width: 880px; }
 .ap-h { font-family: var(--nile-font-display); font-size: 24px; margin: 0 0 var(--nile-s-5); letter-spacing: -0.01em; }
 .ap-sub { color: var(--nile-txt-secondary); font-size: 14px; margin: 4px 0 0; }
 .ap-label { display: block; font-size: 12px; color: var(--nile-txt-secondary);
@@ -1023,8 +1026,11 @@ async function submitCampaign() {
 .ap-tbl { width: 100%; border-collapse: collapse; font-size: 14px; }
 .ap-tbl th { text-align: left; color: var(--nile-txt-tertiary); font-weight: 600; font-size: 12px;
   text-transform: uppercase; letter-spacing: 0.04em; padding: 8px 10px; border-bottom: 1px solid var(--nile-border); }
-.ap-tbl td { padding: 14px 10px; border-bottom: 1px solid var(--nile-border); color: var(--nile-txt-secondary); }
-.ap-tbl td.name { color: var(--nile-txt-primary); font-weight: 600; }
+.ap-tbl td { padding: 14px 10px; border-bottom: 1px solid var(--nile-border);
+  color: var(--nile-txt-secondary); white-space: nowrap; }
+/* Name column is the flexible one — let it wrap instead of the numeric cells. */
+.ap-tbl td.name { color: var(--nile-txt-primary); font-weight: 600;
+  white-space: normal; overflow-wrap: anywhere; }
 .ap-badge { padding: 4px 10px; border-radius: var(--nile-r-pill); font-size: 12px; font-weight: 600; white-space: nowrap; }
 .ap-badge.ok { background: rgba(200, 255, 0, 0.12); color: var(--nile-volt); }
 .ap-badge.warn { background: rgba(245, 158, 11, 0.14); color: var(--nile-warning); }
@@ -1095,6 +1101,28 @@ async function submitCampaign() {
 .ap-chart-axis { display: flex; justify-content: space-between; margin-top: 4px;
   font-size: 11px; color: var(--nile-txt-tertiary); }
 
+/* ── Responsive: tablets & below (≤760px) ────────────────────────────────────
+   The 7-column tables get cramped well before phone widths, so collapse them
+   to stacked cards here (keeps the numeric cells from bleeding). */
+@media (max-width: 760px) {
+  .ap-tbl--cards, .ap-tbl--cards thead, .ap-tbl--cards tbody,
+  .ap-tbl--cards tr, .ap-tbl--cards td { display: block; width: 100%; }
+  .ap-tbl--cards thead { position: absolute; left: -9999px; }
+  .ap-tbl--cards tr { border: 1px solid var(--nile-border);
+    border-radius: var(--nile-r-md); padding: var(--nile-s-3) var(--nile-s-4);
+    margin-bottom: var(--nile-s-3); }
+  .ap-tbl--cards td { border: none; padding: 6px 0;
+    display: flex; justify-content: space-between; gap: 12px; text-align: right;
+    white-space: normal; }
+  .ap-tbl--cards td[data-label]::before { content: attr(data-label);
+    color: var(--nile-txt-tertiary); font-size: 12px; text-transform: uppercase;
+    letter-spacing: 0.04em; text-align: left; flex: none; }
+  .ap-tbl--cards td.name { justify-content: flex-start; text-align: left; font-size: 15px; }
+  .ap-tbl--cards td.name::before { display: none; }
+  .ap-tbl--cards td.ap-rowactions { justify-content: flex-end; }
+  .ap-rowactions .ap-link + .ap-link { margin-left: 16px; }
+}
+
 /* ── Responsive: phones (≤480px) ─────────────────────────────────────────── */
 @media (max-width: 480px) {
   .ap-card { padding: var(--nile-s-5); }
@@ -1109,21 +1137,6 @@ async function submitCampaign() {
   .ap-dl dt { width: auto; }
   .ap-rbtns { flex-wrap: wrap; }
   .ap-rbtns .nile-btn, .ap-reject { flex: 1 1 auto; text-align: center; }
-
-  /* Campaign / live tables collapse to stacked cards */
-  .ap-tbl--cards, .ap-tbl--cards thead, .ap-tbl--cards tbody,
-  .ap-tbl--cards tr, .ap-tbl--cards td { display: block; width: 100%; }
-  .ap-tbl--cards thead { position: absolute; left: -9999px; }
-  .ap-tbl--cards tr { border: 1px solid var(--nile-border);
-    border-radius: var(--nile-r-md); padding: var(--nile-s-3) var(--nile-s-4);
-    margin-bottom: var(--nile-s-3); }
-  .ap-tbl--cards td { border: none; padding: 6px 0;
-    display: flex; justify-content: space-between; gap: 12px; text-align: right; }
-  .ap-tbl--cards td[data-label]::before { content: attr(data-label);
-    color: var(--nile-txt-tertiary); font-size: 12px; text-transform: uppercase;
-    letter-spacing: 0.04em; text-align: left; flex: none; }
-  .ap-tbl--cards td.name { justify-content: flex-start; text-align: left; font-size: 15px; }
-  .ap-tbl--cards td.name::before { display: none; }
-  .ap-tbl--cards td.ap-rowactions { justify-content: flex-end; }
+  .ap-note-inline { max-width: none; }
 }
 </style>
