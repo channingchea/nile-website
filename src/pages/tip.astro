@@ -1,0 +1,42 @@
+---
+// Tip cancel landing (Phase 6) — mounts at /tip on links.joinnile.com.
+// create-tip-payment sends Stripe's cancel_url here with ?event_id when the
+// viewer backs out of checkout. Neutral, no charge was made. No JS needed.
+// noindex: transient post-checkout page, nothing to pre-render.
+import BaseLayout from "../layouts/BaseLayout.astro";
+---
+
+<BaseLayout
+  title="Tip cancelled · Nile"
+  description="No charge was made."
+  canonical="/tip"
+>
+  <Fragment slot="head">
+    <meta name="robots" content="noindex" />
+  </Fragment>
+
+  <section class="nile-section">
+    <div class="nile-container tip-wrap">
+      <div class="tip-card">
+        <h1>Tip cancelled</h1>
+        <p>No worries — you weren't charged. Head back to the show whenever you're ready.</p>
+        <a class="tip-cta" href="/">Back to Nile</a>
+      </div>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .tip-wrap { padding-top: var(--nile-s-20); padding-bottom: var(--nile-s-20); }
+  .tip-card {
+    max-width: 440px; margin: 0 auto; text-align: center;
+    background: var(--nile-bg-surface); border: 1px solid var(--nile-border);
+    border-radius: var(--nile-r-xl); padding: var(--nile-s-10) var(--nile-s-6);
+  }
+  .tip-card h1 { margin: 0 0 var(--nile-s-3); }
+  .tip-card p { color: var(--nile-txt-secondary); margin: 0 0 var(--nile-s-6); line-height: 1.6; }
+  .tip-cta {
+    display: inline-block; background: var(--nile-volt); color: var(--nile-on-volt);
+    border-radius: 999px; padding: 14px 28px; font-weight: 700; text-decoration: none;
+  }
+</style>

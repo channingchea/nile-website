@@ -1,0 +1,45 @@
+---
+// Tip success landing (Phase 6) — mounts at /tip-success on links.joinnile.com.
+// create-tip-payment sends Stripe's success_url here with ?event_id&session_id.
+// Purely confirmational: the stripe-webhook records the tip and the app
+// announces it in chat on resume, so this page needs no JS/Stripe logic.
+// noindex: transient post-checkout page, nothing to pre-render.
+import BaseLayout from "../layouts/BaseLayout.astro";
+---
+
+<BaseLayout
+  title="Thanks for the tip! · Nile"
+  description="Your tip is on its way to the host."
+  canonical="/tip-success"
+>
+  <Fragment slot="head">
+    <meta name="robots" content="noindex" />
+  </Fragment>
+
+  <section class="nile-section">
+    <div class="nile-container tip-wrap">
+      <div class="tip-card">
+        <span class="tip-icon" aria-hidden="true">🎉</span>
+        <h1>Thanks for the tip!</h1>
+        <p>Your tip is on its way to the host. You can head back to the show — it'll show up in the live chat in a moment.</p>
+        <a class="tip-cta" href="/">Back to Nile</a>
+      </div>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .tip-wrap { padding-top: var(--nile-s-20); padding-bottom: var(--nile-s-20); }
+  .tip-card {
+    max-width: 440px; margin: 0 auto; text-align: center;
+    background: var(--nile-bg-surface); border: 1px solid var(--nile-border);
+    border-radius: var(--nile-r-xl); padding: var(--nile-s-10) var(--nile-s-6);
+  }
+  .tip-icon { font-size: 48px; line-height: 1; display: block; margin-bottom: var(--nile-s-4); }
+  .tip-card h1 { margin: 0 0 var(--nile-s-3); }
+  .tip-card p { color: var(--nile-txt-secondary); margin: 0 0 var(--nile-s-6); line-height: 1.6; }
+  .tip-cta {
+    display: inline-block; background: var(--nile-volt); color: var(--nile-on-volt);
+    border-radius: 999px; padding: 14px 28px; font-weight: 700; text-decoration: none;
+  }
+</style>
