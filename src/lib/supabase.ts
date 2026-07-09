@@ -4,20 +4,26 @@
 // the service-role key here.
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
+// `||` (not `??`) on every one of these: GitHub Actions resolves
+// `${{ secrets.X }}` to an EMPTY STRING (not undefined) when a secret isn't
+// set yet, which `??` treats as a real value and never falls back — the app
+// then does fetch("") and silently hits its own page instead of the
+// function. `||` falls back on "" too, so a missing secret degrades to the
+// hardcoded URL instead of breaking outright.
 const URL_ =
-  import.meta.env.PUBLIC_SUPABASE_URL ?? "https://jelmkkvyrliywcdkzhuu.supabase.co";
-const ANON = import.meta.env.PUBLIC_SUPABASE_ANON_KEY ?? "";
+  import.meta.env.PUBLIC_SUPABASE_URL || "https://jelmkkvyrliywcdkzhuu.supabase.co";
+const ANON = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || "";
 
 export const CREATE_AD_PAYMENT_URL =
-  import.meta.env.PUBLIC_CREATE_AD_PAYMENT_URL ??
+  import.meta.env.PUBLIC_CREATE_AD_PAYMENT_URL ||
   "https://jelmkkvyrliywcdkzhuu.functions.supabase.co/create-ad-payment";
 
 export const REVIEW_AD_CAMPAIGN_URL =
-  import.meta.env.PUBLIC_REVIEW_AD_CAMPAIGN_URL ??
+  import.meta.env.PUBLIC_REVIEW_AD_CAMPAIGN_URL ||
   "https://jelmkkvyrliywcdkzhuu.functions.supabase.co/review-ad-campaign";
 
 export const MODERATE_REPORT_URL =
-  import.meta.env.PUBLIC_MODERATE_REPORT_URL ??
+  import.meta.env.PUBLIC_MODERATE_REPORT_URL ||
   "https://jelmkkvyrliywcdkzhuu.functions.supabase.co/moderate-report";
 
 let _client: SupabaseClient | null = null;
