@@ -6,7 +6,11 @@
 
     auth   → email+password sign up / sign in (separate from the app's social login)
     setup  → brand name, contact email, optional Nile-profile link
-    dash   → list campaigns + reporting (get_advertiser_performance RPC)
+    dash   → list campaigns + reporting (get_advertiser_performance RPC).
+             CSV export (client-side Blob, no schema change) for both the
+             campaign table and the daily chart; tapping a campaign name
+             filters the chart to it via get_advertiser_daily's p_campaign_id
+             (migration 0052) — hardening plan Part 3.
     build  → new campaign: image upload (manual 4:3 crop) → ad-creatives,
              creative form, topics, budget/duration → create-ad-payment
              (standalone) → Stripe Checkout. Also doubles as the EDIT form for
@@ -19,12 +23,17 @@
              approve / reject (+ pause/resume on active/paused). Actions call
              the review-ad-campaign fn, which captures / cancels the Stripe
              authorization (checkout is authorize-only for standalone ads).
+    reports → reported-content queue (Reported-Content Review Page, Phase 3):
+             admins see everything with an open/reviewing report, grouped by
+             target, via get_report_queue. Per-type actions (remove/restore
+             content, suspend/unsuspend a user, pause/reject an ad, or just
+             dismiss the report) call the moderate-report fn.
 
   After payment a standalone campaign lands in pending_review until an admin
   approves it (webhook flips pending_payment → pending_review).
 */
 import { ref, onMounted, onUnmounted, computed } from "vue";
-import { supabase, CREATE_AD_PAYMENT_URL, REVIEW_AD_CAMPAIGN_URL } from "../lib/supabase";
+import { supabase, CREATE_AD_PAYMENT_URL, REVIEW_AD_CAMPAIGN_URL, MODERATE_REPORT_URL } from "../lib/supabase";
 
 const HEADLINE_MAX = 60;
 const BODY_MAX = 150;
@@ -53,11 +62,17 @@ const PAGE = 15; // keyset page size (mirrors the app's Paged<T> convention)
 
 const sb = supabase();
 
-const view = ref<"loading" | "auth" | "setup" | "dash" | "build" | "admin">("loading");
+const view = ref<"loading" | "auth" | "setup" | "dash" | "build" | "admin" | "reports" | "denied">("loading");
+// Set by ?view=review / ?view=reports so an admin with a brand account lands
+// on the relevant queue rather than their dashboard; non-admins hit the
+// denied guard in openAdmin()/openReports().
+let wantReview = false;
+let wantReports = false;
 const msg = ref("");
 const busy = ref(false);
 const account = ref<Account | null>(null);
 const isAdmin = ref(false);
+const reportCount = ref(0); // open+reviewing report count, shown next to the nav link
 
 // auth
 const mode = ref<"signin" | "signup">("signin");
@@ -75,6 +90,8 @@ const dashCursor = ref<string | null>(null);
 const dashHasMore = ref(false);
 const loadingMore = ref(false);
 const daily = ref<DailyPoint[]>([]);
+const dailyCampaignId = ref<string | null>(null); // null = all campaigns
+const exportingCampaigns = ref(false);
 
 // builder (create + edit-while-in-review)
 const topics = ref<Topic[]>([]);
@@ -184,6 +201,8 @@ onUnmounted(() => {
 
 async function boot() {
   const params = new URLSearchParams(window.location.search);
+  wantReview = params.get("view") === "review"; // bookmarkable queue link
+  wantReports = params.get("view") === "reports"; // bookmarkable reported-content link
   if (params.get("campaign_id") && params.get("session_id")) {
     returnCampaignId = params.get("campaign_id");
     returnBanner.value = true;
@@ -218,6 +237,12 @@ async function afterAuth() {
   // Own-row RLS on `admins` means this returns a row only for admins.
   const { data: adminRow } = await sb.from("admins").select("user_id").maybeSingle();
   isAdmin.value = !!adminRow;
+  if (isAdmin.value) await loadReportCount();
+
+  // ?view=review / ?view=reports bookmarks: send anyone who asked for a queue
+  // through the matching guard (admins see it; non-admins get the denied view).
+  if (wantReview) { await openAdmin(); return; }
+  if (wantReports) { await openReports(); return; }
 
   const acc = await loadAccount();
   if (!acc) {
@@ -305,6 +330,7 @@ async function submitAccount() {
 async function openDashboard() {
   msg.value = "";
   view.value = "loading";
+  dailyCampaignId.value = null;
   const acct = account.value!.id;
   const [{ data, error }, { data: dly }] = await Promise.all([
     sb.rpc("get_advertiser_performance", { p_account_id: acct, p_limit: PAGE }),
@@ -319,6 +345,24 @@ async function openDashboard() {
   view.value = "dash";
   startCheckoutPoll();
 }
+// Per-campaign daily filter (Part 3): tapping a campaign row re-fetches the
+// chart scoped to it via the new p_campaign_id param (migration 0052);
+// passing null resets to "all campaigns".
+async function filterDaily(campaignId: string | null) {
+  msg.value = "";
+  dailyCampaignId.value = campaignId;
+  const { data, error } = await sb.rpc("get_advertiser_daily", {
+    p_account_id: account.value!.id,
+    ...(campaignId ? { p_campaign_id: campaignId } : {}),
+  });
+  if (error) { msg.value = error.message; return; }
+  daily.value = (data as DailyPoint[]) ?? [];
+}
+const dailyLabel = computed(() => {
+  if (!dailyCampaignId.value) return "";
+  const r = rows.value.find((x) => x.campaign_id === dailyCampaignId.value);
+  return r ? (r.headline || r.name) : "this campaign";
+});
 async function loadMoreDash() {
   if (loadingMore.value || !dashHasMore.value) return;
   loadingMore.value = true;
@@ -354,6 +398,63 @@ const chart = computed(() => {
 });
 const shortDate = (s: string) =>
   new Date(s + "T00:00:00Z").toLocaleDateString(undefined, { month: "short", day: "numeric" });
+
+// ── CSV export (Part 3) — client-side only, no schema change ────────────────
+function downloadCsv(filename: string, table: (string | number)[][]) {
+  const esc = (v: string | number) => {
+    const s = String(v ?? "");
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const csv = table.map((r) => r.map(esc).join(",")).join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+// Pages get_advertiser_performance to exhaustion (capped ~500 rows — nobody is
+// near this) rather than exporting just the currently-loaded window.
+async function exportCampaignsCsv() {
+  msg.value = "";
+  exportingCampaigns.value = true;
+  try {
+    const CAP = 500, FETCH = 100;
+    const acct = account.value!.id;
+    let all: Row[] = [];
+    let cursor: string | null = null;
+    while (all.length < CAP) {
+      const { data, error } = await sb.rpc("get_advertiser_performance", {
+        p_account_id: acct, p_limit: FETCH, p_before: cursor,
+      });
+      if (error) throw error;
+      const page = (data as Row[]) ?? [];
+      all = all.concat(page);
+      if (page.length < FETCH) break; // exhausted
+      cursor = page[page.length - 1].created_at;
+    }
+    all = all.slice(0, CAP);
+    const header = ["Campaign", "Status", "Budget", "Spent", "Impressions", "Clicks", "CTR", "Created"];
+    const body = all.map((r) => [
+      r.headline || r.name, statusLabel(r.status), money(r.budget_cents), money(r.spent_cents),
+      r.impressions, r.clicks, ctr(r), new Date(r.created_at).toLocaleDateString(),
+    ]);
+    downloadCsv(`nile-ads-campaigns.csv`, [header, ...body]);
+  } catch (e: any) {
+    msg.value = String(e?.message || e);
+  } finally {
+    exportingCampaigns.value = false;
+  }
+}
+// Exports whatever the chart is currently showing (all campaigns, or the
+// filtered one from filterDaily) — no extra fetch needed.
+function exportDailyCsv() {
+  if (!daily.value.length) return;
+  const header = ["Date", "Impressions", "Clicks"];
+  const body = daily.value.map((p) => [p.day, p.impressions, p.clicks]);
+  downloadCsv(dailyCampaignId.value ? "nile-ads-daily-campaign.csv" : "nile-ads-daily.csv", [header, ...body]);
+}
 // Withdraw (hard-delete) an in-review or rejected ad. Server-side: the
 // review-ad-campaign fn cancels the card hold (in-review only), then deletes
 // the campaign + creative image.
@@ -452,7 +553,12 @@ function onKey(e: KeyboardEvent) {
 const fmtDate = (s: string) => new Date(s).toLocaleDateString();
 
 async function openAdmin() {
+  // Defense-in-depth: RLS + the review fn already gate the queue, but never
+  // even load it for a non-admin — show a clear denied message instead of an
+  // empty queue.
+  if (!isAdmin.value) { view.value = "denied"; return; }
   msg.value = "";
+  wantReview = false;
   view.value = "loading";
   const [{ data, error }, { data: tps }] = await Promise.all([
     fetchAdmin(null, PAGE),
@@ -465,6 +571,17 @@ async function openAdmin() {
   adminHasMore.value = page.length === PAGE;
   topicNames.value = Object.fromEntries(((tps as Topic[]) ?? []).map((t) => [t.id, t.name]));
   view.value = "admin";
+}
+// Non-admin leaving the denied view: clear the review intent and route them to
+// their own account (dashboard, or setup if they have no brand yet).
+async function leaveDenied() {
+  wantReview = false;
+  wantReports = false;
+  view.value = "loading";
+  const acc = await loadAccount();
+  if (acc) { await openDashboard(); return; }
+  contactEmail.value = (await sb.auth.getUser()).data.user?.email ?? "";
+  view.value = "setup";
 }
 async function loadMoreAdmin() {
   if (loadingMore.value || !adminHasMore.value) return;
@@ -523,6 +640,157 @@ async function act(r: AdminRow, action: "approve" | "reject" | "pause" | "resume
     msg.value = String(e?.message || e);
   } finally {
     actingOn.value = "";
+  }
+}
+
+// ── reported content (Phase 3) ──────────────────────────────────────────────
+type ReportRow = {
+  target_type: "user" | "post" | "event" | "comment" | "ad";
+  target_id: string;
+  report_count: number;
+  reasons: string[];
+  notes: string[];
+  statuses: string[];
+  newest_report_at: string;
+  is_removed: boolean;
+  is_suspended: boolean;
+  // deno/postgres jsonb — shape depends on target_type, see reportPreview().
+  preview: Record<string, any>;
+};
+const TYPE_LABELS: Record<ReportRow["target_type"], string> =
+  { user: "User", post: "Post", event: "Event", comment: "Comment", ad: "Ad" };
+
+const reportsQueue = ref<ReportRow[]>([]);
+const reportsCursor = ref<string | null>(null);
+const reportsHasMore = ref(false);
+const actingOnReport = ref("");
+
+// Cheap head-count for the nav link badge — only ever queried for admins (RLS
+// on `reports` is admin-only select anyway, so this is defense-in-depth).
+async function loadReportCount() {
+  if (!isAdmin.value) return;
+  const { count } = await sb.from("reports").select("id", { count: "exact", head: true })
+    .in("status", ["open", "reviewing"]);
+  reportCount.value = count ?? 0;
+}
+
+async function openReports() {
+  if (!isAdmin.value) { view.value = "denied"; return; } // same denied guard as openAdmin
+  msg.value = "";
+  wantReports = false;
+  view.value = "loading";
+  const { data, error } = await sb.rpc("get_report_queue", { p_limit: PAGE });
+  if (error) msg.value = error.message;
+  const page = (data as ReportRow[]) ?? [];
+  reportsQueue.value = page;
+  reportsCursor.value = page.length ? page[page.length - 1].newest_report_at : null;
+  reportsHasMore.value = page.length === PAGE;
+  await loadReportCount();
+  view.value = "reports";
+}
+async function loadMoreReports() {
+  if (loadingMore.value || !reportsHasMore.value) return;
+  loadingMore.value = true;
+  const { data, error } = await sb.rpc("get_report_queue", { p_limit: PAGE, p_before: reportsCursor.value });
+  if (error) msg.value = error.message;
+  const page = (data as ReportRow[]) ?? [];
+  reportsQueue.value = [...reportsQueue.value, ...page];
+  reportsCursor.value = page.length ? page[page.length - 1].newest_report_at : reportsCursor.value;
+  reportsHasMore.value = page.length === PAGE;
+  loadingMore.value = false;
+}
+// Re-pull the currently loaded window in place after an action (mirrors
+// reloadAdmin) — an actioned target usually drops out of the queue entirely
+// (its reports are no longer open/reviewing), so this also shrinks the list.
+async function reloadReports() {
+  const limit = Math.max(PAGE, reportsQueue.value.length);
+  const { data, error } = await sb.rpc("get_report_queue", { p_limit: limit });
+  if (error) msg.value = error.message;
+  const page = (data as ReportRow[]) ?? [];
+  reportsQueue.value = page;
+  reportsCursor.value = page.length ? page[page.length - 1].newest_report_at : null;
+  reportsHasMore.value = page.length === limit;
+}
+
+const reasonLabel = (s: string) => s.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+
+// Normalizes get_report_queue's per-type jsonb preview into one shape the
+// template can render without a 5-way branch. `exists: false` means the
+// owner already deleted the target themselves (post/comment/event/user) or
+// the campaign was withdrawn (ad) — the card falls back to resolve/dismiss.
+function reportPreview(r: ReportRow) {
+  const p = r.preview ?? {};
+  if (!p.exists) return { exists: false, image: "", title: "", subtitle: "" };
+  switch (r.target_type) {
+    case "post":
+      return { exists: true, image: p.image_url || p.image_urls?.[0] || "", title: p.content || "(no text)", subtitle: `@${p.author_username ?? "unknown"}` };
+    case "comment":
+      return { exists: true, image: "", title: p.body ?? "", subtitle: `@${p.author_username ?? "unknown"}` };
+    case "event":
+      return { exists: true, image: p.cover_image_url || "", title: p.title || "(untitled event)", subtitle: `Hosted by @${p.host_username ?? "unknown"} · ${p.status}` };
+    case "ad":
+      return { exists: true, image: p.image_url || "", title: p.headline || p.campaign_name || "(ad)", subtitle: `${p.advertiser_name ?? "Host boost"} · ${statusLabel(p.campaign_status)}` };
+    default: // user
+      return { exists: true, image: p.avatar_url || "", title: p.display_name || `@${p.username}`, subtitle: p.bio || "" };
+  }
+}
+
+// Common path for resolve/dismiss/remove/restore/suspend/unsuspend — all just
+// { target_type, target_id, action }. confirmMsg gates a native confirm() for
+// the destructive ones (remove_content, suspend_user).
+async function moderate(
+  row: ReportRow,
+  action: "resolve" | "dismiss" | "remove_content" | "restore_content" | "suspend_user" | "unsuspend_user",
+  confirmMsg?: string,
+) {
+  if (confirmMsg && !confirm(confirmMsg)) return;
+  msg.value = "";
+  actingOnReport.value = row.target_type + row.target_id + action;
+  try {
+    const { data: sess } = await sb.auth.getSession();
+    const res = await fetch(MODERATE_REPORT_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${sess.session?.access_token}` },
+      body: JSON.stringify({ target_type: row.target_type, target_id: row.target_id, action }),
+    });
+    const out = await res.json();
+    if (!res.ok) throw new Error(out.error || "Action failed");
+    await reloadReports();
+    await loadReportCount();
+  } catch (e: any) {
+    msg.value = String(e?.message || e);
+  } finally {
+    actingOnReport.value = "";
+  }
+}
+// Ad reports carry no content action in moderate-report — pause/reject go
+// through the existing review-ad-campaign fn, then the report itself is
+// closed out with a best-effort resolve so it doesn't linger in the queue.
+async function actOnAd(row: ReportRow, action: "pause" | "resume" | "reject", confirmMsg?: string) {
+  if (confirmMsg && !confirm(confirmMsg)) return;
+  msg.value = "";
+  actingOnReport.value = row.target_type + row.target_id + action;
+  try {
+    const { data: sess } = await sb.auth.getSession();
+    const token = sess.session?.access_token;
+    const res = await fetch(REVIEW_AD_CAMPAIGN_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ campaign_id: row.target_id, action }),
+    });
+    const out = await res.json();
+    if (!res.ok) throw new Error(out.error || "Action failed");
+    await fetch(MODERATE_REPORT_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ target_type: "ad", target_id: row.target_id, action: "resolve" }),
+    }).catch(() => {});
+    await reloadReports();
+    await loadReportCount();
+  } catch (e: any) {
+    msg.value = String(e?.message || e);
+  } finally {
+    actingOnReport.value = "";
   }
 }
 
@@ -676,6 +944,13 @@ async function submitCampaign() {
 
     <div v-if="view === 'loading'" class="ap-center">Loading…</div>
 
+    <!-- DENIED (non-admin reached the review queue) -->
+    <div v-else-if="view === 'denied'" class="ap-card">
+      <h2 class="ap-h">Not available</h2>
+      <p class="ap-sub">This area is for Nile staff.</p>
+      <button class="nile-btn nile-btn--primary ap-full" @click="leaveDenied">Go to your account</button>
+    </div>
+
     <!-- AUTH -->
     <form v-else-if="view === 'auth'" class="ap-card" autocomplete="on" @submit.prevent="submitAuth">
       <h2 class="ap-h">{{ mode === 'signin' ? 'Sign in' : 'Create an advertiser login' }}</h2>
@@ -716,11 +991,17 @@ async function submitCampaign() {
         </div>
         <div class="ap-actions">
           <button v-if="isAdmin" class="ap-link" @click="openAdmin">Review queue</button>
+          <button v-if="isAdmin" class="ap-link" @click="openReports">Reported content{{ reportCount ? ` (${reportCount})` : '' }}</button>
           <button class="ap-link" @click="signOut">Sign out</button>
         </div>
       </div>
 
-      <button class="nile-btn nile-btn--primary ap-new" @click="openBuilder">+ New campaign</button>
+      <div class="ap-new-row">
+        <button class="nile-btn nile-btn--primary ap-new" @click="openBuilder">+ New campaign</button>
+        <button class="ap-link" :disabled="exportingCampaigns || rows.length === 0" @click="exportCampaignsCsv">
+          {{ exportingCampaigns ? 'Exporting…' : 'Export CSV' }}
+        </button>
+      </div>
 
       <!-- Activity over time (impressions vs clicks) -->
       <figure v-if="chart" class="ap-chart">
@@ -729,6 +1010,10 @@ async function submitCampaign() {
             <b>{{ chart.totalImpr }}</b></span>
           <span class="ap-chart-legend"><i class="dot clk"></i>Clicks
             <b>{{ chart.totalClk }}</b></span>
+          <span v-if="dailyCampaignId" class="ap-chart-filter">
+            Showing: {{ dailyLabel }} · <button type="button" class="ap-link" @click="filterDaily(null)">All campaigns</button>
+          </span>
+          <button type="button" class="ap-link ap-chart-export" @click="exportDailyCsv">Export CSV</button>
         </figcaption>
         <svg :viewBox="`0 0 ${CHART_W} ${CHART_H}`" class="ap-chart-svg" preserveAspectRatio="none" role="img"
              aria-label="Daily impressions and clicks">
@@ -749,8 +1034,11 @@ async function submitCampaign() {
             <tr><th>Campaign</th><th>Status</th><th>Impr.</th><th>Clicks</th><th>CTR</th><th>Spent</th><th></th></tr>
           </thead>
           <tbody>
-            <tr v-for="r in rows" :key="r.campaign_id">
-              <td class="name" data-label="Campaign">
+            <tr v-for="r in rows" :key="r.campaign_id" :class="{ 'ap-row-selected': dailyCampaignId === r.campaign_id }">
+              <td
+                class="name ap-clickable" data-label="Campaign" title="Filter the chart above to this campaign"
+                @click="filterDaily(r.campaign_id)"
+              >
                 {{ r.headline || r.name }}
                 <div v-if="r.status === 'rejected' && r.review_note" class="ap-note-inline">
                   Reviewer: {{ r.review_note }}
@@ -860,6 +1148,7 @@ async function submitCampaign() {
           <p class="ap-sub">{{ pendingRows.length }} awaiting review</p>
         </div>
         <div class="ap-actions">
+          <button class="ap-link" @click="openReports">Reported content{{ reportCount ? ` (${reportCount})` : '' }}</button>
           <button v-if="account" class="ap-link" @click="openDashboard">My dashboard</button>
           <button class="ap-link" @click="signOut">Sign out</button>
         </div>
@@ -907,6 +1196,98 @@ async function submitCampaign() {
       </template>
 
       <button v-if="adminHasMore" class="ap-loadmore" :disabled="loadingMore" @click="loadMoreAdmin">
+        {{ loadingMore ? 'Loading…' : 'Load more' }}
+      </button>
+    </div>
+
+    <!-- REPORTED CONTENT QUEUE -->
+    <div v-else-if="view === 'reports'" class="ap-card ap-wide">
+      <div class="ap-top">
+        <div>
+          <h2 class="ap-h" style="margin:0">Reported content</h2>
+          <p class="ap-sub">{{ reportCount }} open report{{ reportCount === 1 ? '' : 's' }}</p>
+        </div>
+        <div class="ap-actions">
+          <button class="ap-link" @click="openAdmin">Review queue</button>
+          <button v-if="account" class="ap-link" @click="openDashboard">My dashboard</button>
+          <button class="ap-link" @click="signOut">Sign out</button>
+        </div>
+      </div>
+
+      <p v-if="reportsQueue.length === 0" class="ap-center">Nothing reported right now.</p>
+
+      <div v-for="r in reportsQueue" :key="r.target_type + r.target_id" class="ap-review">
+        <div class="ap-report-head">
+          <span class="ap-badge muted">{{ TYPE_LABELS[r.target_type] }}</span>
+          <span v-if="r.is_removed" class="ap-badge err">Removed</span>
+          <span v-if="r.is_suspended" class="ap-badge err">Suspended</span>
+          <span class="ap-rmeta">{{ fmtDate(r.newest_report_at) }}</span>
+        </div>
+
+        <template v-if="!reportPreview(r).exists">
+          <p class="ap-rb">Content no longer exists — the owner already deleted it.</p>
+        </template>
+        <template v-else>
+          <img v-if="reportPreview(r).image" :src="reportPreview(r).image" class="ap-preview" alt="" />
+          <h3 class="ap-rh">{{ reportPreview(r).title }}</h3>
+          <p v-if="reportPreview(r).subtitle" class="ap-rb">{{ reportPreview(r).subtitle }}</p>
+        </template>
+
+        <p class="ap-rmeta">
+          {{ r.report_count }} report{{ r.report_count === 1 ? '' : 's' }} · {{ r.reasons.map(reasonLabel).join(', ') }}
+        </p>
+        <p v-for="(n, i) in r.notes" :key="i" class="ap-note-inline">“{{ n }}”</p>
+
+        <div class="ap-rbtns">
+          <template v-if="reportPreview(r).exists && ['post', 'comment', 'event'].includes(r.target_type)">
+            <button
+              v-if="!r.is_removed" class="ap-reject" :disabled="!!actingOnReport"
+              @click="moderate(r, 'remove_content', 'Remove this content? It will be hidden app-wide right away.')"
+            >{{ actingOnReport === r.target_type + r.target_id + 'remove_content' ? 'Removing…' : 'Remove content' }}</button>
+            <button
+              v-else class="ap-link" :disabled="!!actingOnReport"
+              @click="moderate(r, 'restore_content')"
+            >{{ actingOnReport === r.target_type + r.target_id + 'restore_content' ? 'Restoring…' : 'Restore' }}</button>
+          </template>
+
+          <template v-if="reportPreview(r).exists && r.target_type === 'user'">
+            <button
+              v-if="!r.is_suspended" class="ap-reject" :disabled="!!actingOnReport"
+              @click="moderate(r, 'suspend_user', 'Suspend this user? They will be signed out and unable to sign back in.')"
+            >{{ actingOnReport === r.target_type + r.target_id + 'suspend_user' ? 'Suspending…' : 'Suspend user' }}</button>
+            <button
+              v-else class="ap-link" :disabled="!!actingOnReport"
+              @click="moderate(r, 'unsuspend_user')"
+            >{{ actingOnReport === r.target_type + r.target_id + 'unsuspend_user' ? 'Unsuspending…' : 'Unsuspend' }}</button>
+          </template>
+
+          <template v-if="reportPreview(r).exists && r.target_type === 'ad'">
+            <button
+              v-if="r.preview.campaign_status === 'active'" class="ap-link" :disabled="!!actingOnReport"
+              @click="actOnAd(r, 'pause')"
+            >{{ actingOnReport === r.target_type + r.target_id + 'pause' ? 'Pausing…' : 'Pause' }}</button>
+            <button
+              v-else-if="r.preview.campaign_status === 'paused'" class="ap-link" :disabled="!!actingOnReport"
+              @click="actOnAd(r, 'resume')"
+            >{{ actingOnReport === r.target_type + r.target_id + 'resume' ? 'Resuming…' : 'Resume' }}</button>
+            <button
+              v-if="r.preview.campaign_status === 'pending_review'" class="ap-reject" :disabled="!!actingOnReport"
+              @click="actOnAd(r, 'reject', 'Reject this ad?')"
+            >{{ actingOnReport === r.target_type + r.target_id + 'reject' ? 'Rejecting…' : 'Reject' }}</button>
+          </template>
+
+          <button
+            v-if="!reportPreview(r).exists" class="ap-link" :disabled="!!actingOnReport"
+            @click="moderate(r, 'resolve')"
+          >{{ actingOnReport === r.target_type + r.target_id + 'resolve' ? 'Resolving…' : 'Resolve' }}</button>
+          <button
+            class="ap-link" :disabled="!!actingOnReport"
+            @click="moderate(r, 'dismiss')"
+          >{{ actingOnReport === r.target_type + r.target_id + 'dismiss' ? 'Dismissing…' : 'Dismiss' }}</button>
+        </div>
+      </div>
+
+      <button v-if="reportsHasMore" class="ap-loadmore" :disabled="loadingMore" @click="loadMoreReports">
         {{ loadingMore ? 'Loading…' : 'Load more' }}
       </button>
     </div>
@@ -981,6 +1362,8 @@ async function submitCampaign() {
 .ap-textarea { resize: vertical; min-height: 84px; }
 .ap-full { width: 100%; margin-top: var(--nile-s-2); }
 .ap-new { display: inline-block; width: auto; margin-bottom: var(--nile-s-6); }
+.ap-new-row { display: flex; align-items: center; gap: var(--nile-s-5); margin-bottom: var(--nile-s-6); }
+.ap-new-row .ap-new { margin-bottom: 0; }
 .ap-link { background: none; border: none; color: var(--nile-txt-secondary);
   cursor: pointer; font-size: 14px; text-decoration: underline; padding: 0; font-family: inherit; }
 .ap-note { color: var(--nile-txt-tertiary); font-size: 12px; text-align: center;
@@ -1040,6 +1423,7 @@ async function submitCampaign() {
 .ap-actions { display: flex; gap: var(--nile-s-4); }
 .ap-review { border: 1px solid var(--nile-border); border-radius: var(--nile-r-md);
   padding: var(--nile-s-5); margin-bottom: var(--nile-s-5); }
+.ap-report-head { display: flex; align-items: center; gap: var(--nile-s-3); margin-bottom: var(--nile-s-3); }
 .ap-rh { font-family: var(--nile-font-display); font-size: 18px; margin: 0 0 var(--nile-s-2); }
 .ap-rb { color: var(--nile-txt-secondary); font-size: 14px; margin: 0 0 var(--nile-s-3); }
 .ap-rmeta { color: var(--nile-txt-tertiary); font-size: 12px; margin: 0 0 var(--nile-s-4);
@@ -1088,10 +1472,13 @@ async function submitCampaign() {
 
 /* Activity chart */
 .ap-chart { margin: 0 0 var(--nile-s-6); }
-.ap-chart-cap { display: flex; gap: var(--nile-s-5); margin: 0 0 var(--nile-s-2); font-size: 12px; color: var(--nile-txt-secondary); }
+.ap-chart-cap { display: flex; flex-wrap: wrap; align-items: center; gap: var(--nile-s-5); margin: 0 0 var(--nile-s-2); font-size: 12px; color: var(--nile-txt-secondary); }
 .ap-chart-legend { display: inline-flex; align-items: center; gap: 6px; }
 .ap-chart-legend b { color: var(--nile-txt-primary); }
 .ap-chart-legend .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.ap-chart-filter { color: var(--nile-txt-tertiary); }
+.ap-chart-export { margin-left: auto; }
+.ap-row-selected td { background: rgba(200, 255, 0, 0.05); }
 .dot.impr { background: var(--nile-volt); }
 .dot.clk { background: var(--nile-coral); }
 .ap-chart-svg { width: 100%; height: 120px; display: block; }

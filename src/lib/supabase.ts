@@ -16,6 +16,10 @@ export const REVIEW_AD_CAMPAIGN_URL =
   import.meta.env.PUBLIC_REVIEW_AD_CAMPAIGN_URL ??
   "https://jelmkkvyrliywcdkzhuu.functions.supabase.co/review-ad-campaign";
 
+export const MODERATE_REPORT_URL =
+  import.meta.env.PUBLIC_MODERATE_REPORT_URL ??
+  "https://jelmkkvyrliywcdkzhuu.functions.supabase.co/moderate-report";
+
 let _client: SupabaseClient | null = null;
 export function supabase(): SupabaseClient {
   if (_client) return _client;

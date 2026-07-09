@@ -26,6 +26,7 @@ jobs:
           PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.PUBLIC_SUPABASE_ANON_KEY }}
           PUBLIC_CREATE_AD_PAYMENT_URL: ${{ secrets.PUBLIC_CREATE_AD_PAYMENT_URL }}
           PUBLIC_REVIEW_AD_CAMPAIGN_URL: ${{ secrets.PUBLIC_REVIEW_AD_CAMPAIGN_URL }}
+          PUBLIC_MODERATE_REPORT_URL: ${{ secrets.PUBLIC_MODERATE_REPORT_URL }}
 
       - name: Deploy to Hostinger via FTP
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
