@@ -19,10 +19,10 @@ export const NAV = [
   {
     label: "Tailored For",
     children: [
-      { label: "For Hosts", href: "/host" },
-      { label: "For Musicians", href: "/musicians" },
-      { label: "For Worship", href: "/worship" },
-      { label: "For Creators", href: "/creators" },
+      { label: "Hosts", href: "/host" },
+      { label: "Musicians", href: "/musicians" },
+      { label: "Worship", href: "/worship" },
+      { label: "Creators", href: "/creators" },
     ],
   },
   { label: "Watch", href: "/watch" },
@@ -30,10 +30,11 @@ export const NAV = [
   { label: "FAQ", href: "/faq" },
 ] as const;
 
-// Flattened nav for the footer (no dropdowns there).
-export const FOOTER_NAV = NAV.flatMap((item) =>
-  "children" in item ? item.children : [item],
-) as readonly { label: string; href: string }[];
+// Flattened nav for the footer (no dropdowns there), plus footer-only links.
+export const FOOTER_NAV = [
+  ...NAV.flatMap((item) => ("children" in item ? item.children : [item])),
+  { label: "Device Guide", href: "/resources/compatible-devices" },
+] as readonly { label: string; href: string }[];
 
 export const LEGAL_NAV = [
   { label: "Privacy", href: "/privacy" },

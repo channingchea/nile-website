@@ -5,7 +5,10 @@ const path = Astro.url.pathname;
 
 <header class="site-header">
   <div class="nile-container header-inner">
-    <a href="/" class="brand" aria-label="Nile home">Nile</a>
+    <a href="/" class="brand" aria-label="Nile home">
+      <img src="/logo-mark.png" alt="" class="brand-mark" width="42" height="20" />
+      Nile
+    </a>
 
     <nav class="nav" aria-label="Primary">
       {
@@ -145,11 +148,18 @@ const path = Astro.url.pathname;
     height: 64px;
   }
   .brand {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--nile-s-2);
     font-family: var(--nile-font-display);
     font-weight: 800;
     font-size: 1.5rem;
     color: var(--nile-volt);
     text-decoration: none;
+  }
+  .brand-mark {
+    height: 20px;
+    width: auto;
   }
   .nav {
     display: flex;

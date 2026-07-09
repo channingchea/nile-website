@@ -1,0 +1,332 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+
+const title = "What You Need to Stream on Nile: Phones, Cameras & Gear | Nile";
+const description =
+  "Every device that works with Nile: recommended iPhones, Android phones, iPads, and Macs, plus external mics, audio mixers, and cameras that plug right in.";
+
+const articleSchema = JSON.stringify({
+  "@context": "https://schema.org",
+  "@type": "TechArticle",
+  headline: "Get the Most Out of Nile: Compatible Devices & Gear",
+  description,
+  author: { "@type": "Organization", name: "Nile" },
+  publisher: { "@type": "Organization", name: "Nile" },
+});
+---
+
+<BaseLayout
+  title={title}
+  description={description}
+  canonical="/resources/compatible-devices"
+  jsonLd={articleSchema}
+>
+  <!-- HERO / INTRO -->
+  <section class="hero nile-section">
+    <div class="nile-container hero-inner">
+      <p class="nile-eyebrow">Device Guide</p>
+      <h1>Get the most out of Nile.</h1>
+      <p class="nile-lead">
+        Getting started on Nile is simple: all you need is a smartphone. Mount
+        it, go live, and you're streaming a ticketed show. But if you want to
+        level up (more angles, better sound, bigger production), here's every
+        device we recommend, and exactly how to connect it.
+      </p>
+    </div>
+  </section>
+
+  <!-- DEVICES THAT RUN THE APP -->
+  <section class="band nile-section">
+    <div class="nile-container">
+      <div class="section-head">
+        <p class="nile-eyebrow">Run the app</p>
+        <h2>Devices that run Nile</h2>
+        <p class="section-sub">
+          Live multi-angle streaming asks a lot of a device. Older hardware may
+          technically run the app, but these are the devices we recommend for a
+          stream that never makes you think about the stream.
+        </p>
+      </div>
+
+      <div class="device-grid">
+        <div class="device-card">
+          <h3>Smartphones</h3>
+          <p>
+            Your phone is a full Nile camera. Most shows are made entirely
+            with phones. Two friends, two phones, two angles: that's a
+            production.
+          </p>
+          <ul class="device-list">
+            <li>iPhone 12 and later, running iOS 16 or newer</li>
+            <li>Google Pixel 7 and later</li>
+            <li>Samsung Galaxy S21 and later</li>
+            <li>Other Android flagships from 2022 on, running Android 12+</li>
+          </ul>
+        </div>
+
+        <div class="device-card">
+          <h3>Tablets</h3>
+          <p>
+            An iPad makes a great locked-off wide shot or a roomy screen for
+            running your show. We recommend and test on iPad. The app runs on
+            Android tablets too, but iPad is where we make sure everything just
+            works.
+          </p>
+          <ul class="device-list">
+            <li>iPad (10th generation) and later</li>
+            <li>iPad Air and iPad Pro models with USB-C</li>
+            <li>iPadOS 17 or newer if you plan to plug in an external camera</li>
+          </ul>
+        </div>
+
+        <div class="device-card">
+          <h3>Mac</h3>
+          <p>
+            The Nile app on Mac turns your desk into a control room: a bigger
+            screen for managing cameras, chat, and your crew mid-show.
+          </p>
+          <ul class="device-list">
+            <li>Any Apple silicon Mac (M1 and later)</li>
+            <li>macOS 13 Ventura or newer</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- EXTERNAL DEVICES: AUDIO -->
+  <section class="nile-section">
+    <div class="nile-container split">
+      <div class="split-head">
+        <p class="nile-eyebrow">External devices</p>
+        <h2>Better sound, simply.</h2>
+        <p class="seo-h2">External microphones and audio mixers for live streaming</p>
+      </div>
+      <div class="split-body">
+        <h3>Microphones</h3>
+        <p>
+          Your phone's built-in mic is good. A dedicated mic is the single
+          biggest upgrade you can make. Plug one in and Nile detects it
+          automatically. Just switch on <strong>external mic mode</strong> in
+          the camera screen so your mic's own sound passes through untouched.
+        </p>
+        <ul class="device-list">
+          <li>Plug-in mics: Rode VideoMic GO II, Shure MV88+ (USB-C)</li>
+          <li>Wireless kits: Rode Wireless GO II, DJI Mic 2</li>
+          <li>Any USB-C microphone your phone or iPad recognizes</li>
+        </ul>
+
+        <h3>Audio mixers</h3>
+        <p>
+          Already running sound through a mixing board? You can send that mix
+          straight into your stream. Take a line out from the mixer into a
+          small USB audio interface (or Apple's USB-C-to-3.5mm adapter), plug
+          that into the phone or iPad acting as your main camera, and Nile
+          treats it like an external mic. Turn on external mic mode and your
+          board's mix (every instrument, every voice) is what the audience
+          hears.
+        </p>
+        <ul class="device-list">
+          <li>Any mixer with a line/monitor output</li>
+          <li>
+            Connect via a USB audio interface (e.g. Behringer UCA202, Focusrite
+            Scarlett Solo) or Apple's USB-C audio adapter
+          </li>
+          <li>Keep the mixer's output level low to start, then raise it during sound check</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- EXTERNAL DEVICES: VIDEO -->
+  <section class="band nile-section">
+    <div class="nile-container split">
+      <div class="split-head">
+        <p class="nile-eyebrow">External devices</p>
+        <h2>More ways to get the shot.</h2>
+        <p class="seo-h2">External cameras and capture cards for live streaming</p>
+      </div>
+      <div class="split-body">
+        <h3>External cameras on Mac</h3>
+        <p>
+          On a Mac, Nile isn't limited to the built-in camera. Pick any
+          connected camera right from the camera screen.
+        </p>
+        <ul class="device-list">
+          <li>USB webcams: Logitech Brio, Insta360 Link, or any standard webcam</li>
+          <li>
+            HDMI cameras (DSLRs, mirrorless, camcorders) via a capture card
+            like the Elgato Cam Link 4K (the camera shows up as a webcam)
+          </li>
+        </ul>
+
+        <h3>External cameras on iPad <span class="soon-chip">Rolling out soon</span></h3>
+        <p>
+          On iPads with USB-C running iPadOS 17 or newer, you'll be able to
+          plug in a USB webcam and use it as your Nile camera, great for
+          mounting a proper camera while the iPad stays at the operator's
+          station.
+        </p>
+
+        <h3>Screen sharing <span class="soon-chip">Rolling out soon</span></h3>
+        <p>
+          Share your Mac or iPad screen into the stream as its own tile
+          alongside the cameras: slides for a talk, lyrics for worship,
+          gameplay for a watch party. Viewers switch to it like any other
+          angle.
+        </p>
+
+        <p class="fine-note">
+          Phones stream from their built-in cameras. And honestly, that's the
+          point. The best external camera setup still starts with a couple of
+          phones.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- CLOSING CTA -->
+  <section class="closing nile-section">
+    <div class="nile-container closing-inner">
+      <h2>Start with the phone in your pocket.</h2>
+      <p class="closing-sub">
+        Everything on this page is optional. A smartphone and something worth
+        showing. That's a Nile event.
+      </p>
+      <a href="/host" class="nile-btn nile-btn--primary">Host Your First Event →</a>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  h2 {
+    margin-bottom: var(--nile-s-2);
+  }
+  .seo-h2 {
+    color: var(--nile-txt-tertiary);
+    font-size: 0.95rem;
+    margin-bottom: var(--nile-s-4);
+  }
+
+  /* Hero */
+  .hero {
+    padding-block: var(--nile-s-16) var(--nile-s-12);
+  }
+  .hero-inner {
+    max-width: 720px;
+  }
+
+  /* Device grid */
+  .section-head {
+    max-width: 720px;
+    margin-bottom: var(--nile-s-8);
+  }
+  .section-sub {
+    color: var(--nile-txt-secondary);
+  }
+  .device-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--nile-s-6);
+  }
+  .device-card {
+    border: 1px solid var(--nile-border);
+    border-radius: var(--nile-r-lg);
+    padding: var(--nile-s-6);
+  }
+  .device-card h3 {
+    margin-bottom: var(--nile-s-3);
+  }
+  .device-card p {
+    color: var(--nile-txt-secondary);
+    font-size: 0.95rem;
+    margin-bottom: var(--nile-s-4);
+  }
+
+  /* Shared list style */
+  .device-list {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 var(--nile-s-6);
+    display: grid;
+    gap: var(--nile-s-2);
+  }
+  .device-list li {
+    color: var(--nile-txt-secondary);
+    font-size: 0.95rem;
+    padding-left: var(--nile-s-5);
+    position: relative;
+  }
+  .device-list li::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0.55em;
+    width: 8px;
+    height: 8px;
+    border-radius: 2px;
+    background: var(--nile-volt);
+  }
+
+  /* Split */
+  .split {
+    display: grid;
+    grid-template-columns: 1fr 1.4fr;
+    gap: var(--nile-s-12);
+    align-items: start;
+  }
+  .split-head h2 {
+    margin-bottom: 0;
+  }
+  .split-body p {
+    color: var(--nile-txt-secondary);
+    margin-bottom: var(--nile-s-4);
+  }
+  .split-body h3 {
+    margin-bottom: var(--nile-s-2);
+  }
+  .split-body h3:not(:first-child) {
+    margin-top: var(--nile-s-6);
+  }
+
+  .soon-chip {
+    display: inline-block;
+    vertical-align: middle;
+    border: 1px solid color-mix(in srgb, var(--nile-volt) 50%, transparent);
+    border-radius: var(--nile-r-pill);
+    padding: 2px var(--nile-s-3);
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--nile-volt);
+    margin-left: var(--nile-s-2);
+  }
+  .fine-note {
+    font-size: 0.9rem;
+    color: var(--nile-txt-tertiary);
+    border-top: 1px solid var(--nile-border);
+    padding-top: var(--nile-s-4);
+    margin-top: var(--nile-s-6);
+  }
+
+  /* Closing */
+  .closing-inner {
+    text-align: center;
+    max-width: 600px;
+  }
+  .closing-sub {
+    color: var(--nile-txt-secondary);
+    margin-bottom: var(--nile-s-6);
+  }
+
+  @media (max-width: 880px) {
+    .device-grid {
+      grid-template-columns: 1fr;
+    }
+    .split {
+      grid-template-columns: 1fr;
+      gap: var(--nile-s-8);
+    }
+  }
+</style>

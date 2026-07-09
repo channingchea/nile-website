@@ -182,7 +182,7 @@ async function applyCrop() {
     0, 0, 1200, 900,
   );
   const blob = await new Promise<Blob | null>((r) => canvas.toBlob(r, "image/jpeg", 0.9));
-  if (!blob) { msg.value = "Couldn't crop that image — try another file."; return; }
+  if (!blob) { msg.value = "Couldn't crop that image. Try another file."; return; }
   file.value = new File([blob], cropName, { type: "image/jpeg" });
   if (previewUrl.value) URL.revokeObjectURL(previewUrl.value);
   previewUrl.value = URL.createObjectURL(file.value);
@@ -1030,7 +1030,7 @@ async function submitCampaign() {
       <button v-else-if="view === 'admins'" type="button" class="ap-retry" @click="openAdmins">Retry</button>
     </div>
     <div v-if="returnBanner" class="ap-msg ap-ok">
-      Payment received — your ad is now in review. You'll see it as Active here once approved.
+      Payment received. Your ad is now in review. You'll see it as Active here once approved.
     </div>
 
     <div v-if="view === 'loading'" class="ap-center">Loading…</div>
@@ -1066,7 +1066,7 @@ async function submitCampaign() {
       <label class="ap-label">Contact email</label>
       <input class="ap-input" v-model="contactEmail" type="email" placeholder="ads@acme.com" required />
       <label class="ap-label">Nile profile link (optional)</label>
-      <input class="ap-input" v-model="profileUsername" placeholder="@yourbrand — leave blank to skip" />
+      <input class="ap-input" v-model="profileUsername" placeholder="@yourbrand (leave blank to skip)" />
       <button class="nile-btn nile-btn--primary ap-full" type="submit" :disabled="busy">
         {{ busy ? 'Saving…' : 'Create account' }}
       </button>
@@ -1166,7 +1166,7 @@ async function submitCampaign() {
       </div>
 
       <label class="ap-label">
-        Creative image (shown 4:3 in feed, max 5MB{{ editingId ? ' — leave as-is to keep current' : '' }})
+        Creative image (shown 4:3 in feed, max 5MB{{ editingId ? ', leave as-is to keep current' : '' }})
       </label>
       <input class="ap-input" type="file" accept="image/*" @change="onFile" />
 
@@ -1196,14 +1196,14 @@ async function submitCampaign() {
       <label class="ap-label">Click-through URL (https)</label>
       <input class="ap-input" v-model="clickUrl" type="url" placeholder="https://acme.com/offer" required />
 
-      <label class="ap-label">Target topics (optional — none = show to everyone)</label>
+      <label class="ap-label">Target topics (optional: none = show to everyone)</label>
       <div v-if="topics.length" class="ap-chips">
         <button
           v-for="t in topics" :key="t.id" type="button" class="ap-chip"
           :aria-selected="selectedTopics.has(t.id)" @click="toggleTopic(t.id)"
         >{{ t.name }}</button>
       </div>
-      <p v-else class="ap-note" style="text-align:left">No topics available — your ad will show to everyone.</p>
+      <p v-else class="ap-note" style="text-align:left">No topics available. Your ad will show to everyone.</p>
 
       <template v-if="!editingId">
         <label class="ap-label">Budget</label>
@@ -1223,11 +1223,11 @@ async function submitCampaign() {
         {{ busy ? (editingId ? 'Saving…' : 'Setting up…') : (editingId ? 'Save changes' : 'Continue to payment') }}
       </button>
       <p class="ap-note" v-if="editingId">
-        Your ad stays in review after saving — budget and duration can't change
+        Your ad stays in review after saving. Budget and duration can't change
         because your card is already authorized.
       </p>
       <p class="ap-note" v-else>
-        You'll pay securely via Stripe. Your card is only authorized now — it's
+        You'll pay securely via Stripe. Your card is only authorized now. It's
         charged when your ad is approved, and the hold is released if it isn't.
       </p>
     </form>
@@ -1319,7 +1319,7 @@ async function submitCampaign() {
         </div>
 
         <template v-if="!reportPreview(r).exists">
-          <p class="ap-rb">Content no longer exists — the owner already deleted it.</p>
+          <p class="ap-rb">Content no longer exists. The owner already deleted it.</p>
         </template>
         <template v-else>
           <img v-if="reportPreview(r).image" :src="reportPreview(r).image" class="ap-preview" alt="" />
@@ -1392,7 +1392,7 @@ async function submitCampaign() {
         <div>
           <h2 class="ap-h" style="margin:0">Admins</h2>
           <p class="ap-sub">
-            {{ adminsList.length }} admin{{ adminsList.length === 1 ? '' : 's' }} —
+            {{ adminsList.length }} admin{{ adminsList.length === 1 ? '' : 's' }}:
             everyone here can review ads, moderate reports, and manage this list
           </p>
         </div>
@@ -1409,7 +1409,7 @@ async function submitCampaign() {
       <form class="ap-addrow" @submit.prevent="addAdmin">
         <input
           class="ap-input" v-model="newAdminEmail" type="email" required
-          placeholder="name@example.com — must already have a Nile account"
+          placeholder="name@example.com (must already have a Nile account)"
         />
         <button class="nile-btn nile-btn--primary" type="submit" :disabled="!!adminsBusy">
           {{ adminsBusy === 'add' ? 'Adding…' : 'Add admin' }}
@@ -1472,7 +1472,7 @@ async function submitCampaign() {
             <button class="ap-reject" @click="rejectMode = true">Reject…</button>
           </div>
           <template v-else>
-            <label class="ap-label">Reason (optional — shared with the advertiser)</label>
+            <label class="ap-label">Reason (optional, shared with the advertiser)</label>
             <textarea
               class="ap-input ap-textarea" v-model="rejectNote" maxlength="300"
               placeholder="e.g. Image quality is too low, or the landing page doesn't match the ad."

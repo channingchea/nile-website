@@ -6,7 +6,10 @@ const year = new Date().getFullYear();
 <footer class="site-footer">
   <div class="nile-container footer-inner">
     <div class="footer-brand">
-      <span class="brand">Nile</span>
+      <span class="brand">
+        <img src="/logo-mark.png" alt="" class="brand-mark" width="42" height="20" />
+        Nile
+      </span>
       <p class="tagline">Your show, without the ceiling.</p>
     </div>
 
@@ -37,10 +40,17 @@ const year = new Date().getFullYear();
     justify-content: space-between;
   }
   .brand {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--nile-s-2);
     font-family: var(--nile-font-display);
     font-weight: 800;
     font-size: 1.5rem;
     color: var(--nile-volt);
+  }
+  .brand-mark {
+    height: 20px;
+    width: auto;
   }
   .tagline {
     color: var(--nile-txt-secondary);
