@@ -28,12 +28,17 @@
              target, via get_report_queue. Per-type actions (remove/restore
              content, suspend/unsuspend a user, pause/reject an ad, or just
              dismiss the report) call the moderate-report fn.
+    admins → admin management (migration 0055): admins add/remove other admins
+             by email via the manage-admins fn (the `admins` table stays
+             client-unwritable). Guardrails server-side: no self-removal, no
+             removing the last admin; every change lands in
+             admin_management_audit and shows under "Recent activity".
 
   After payment a standalone campaign lands in pending_review until an admin
   approves it (webhook flips pending_payment → pending_review).
 */
 import { ref, onMounted, onUnmounted, computed } from "vue";
-import { supabase, CREATE_AD_PAYMENT_URL, REVIEW_AD_CAMPAIGN_URL, MODERATE_REPORT_URL } from "../lib/supabase";
+import { supabase, CREATE_AD_PAYMENT_URL, REVIEW_AD_CAMPAIGN_URL, MODERATE_REPORT_URL, MANAGE_ADMINS_URL } from "../lib/supabase";
 
 const HEADLINE_MAX = 60;
 const BODY_MAX = 150;
@@ -62,12 +67,13 @@ const PAGE = 15; // keyset page size (mirrors the app's Paged<T> convention)
 
 const sb = supabase();
 
-const view = ref<"loading" | "auth" | "setup" | "dash" | "build" | "admin" | "reports" | "denied">("loading");
-// Set by ?view=review / ?view=reports so an admin with a brand account lands
-// on the relevant queue rather than their dashboard; non-admins hit the
-// denied guard in openAdmin()/openReports().
+const view = ref<"loading" | "auth" | "setup" | "dash" | "build" | "admin" | "reports" | "admins" | "denied">("loading");
+// Set by ?view=review / ?view=reports / ?view=admins so an admin with a brand
+// account lands on the relevant queue rather than their dashboard; non-admins
+// hit the denied guard in openAdmin()/openReports()/openAdmins().
 let wantReview = false;
 let wantReports = false;
+let wantAdmins = false;
 const msg = ref("");
 const busy = ref(false);
 const account = ref<Account | null>(null);
@@ -203,6 +209,7 @@ async function boot() {
   const params = new URLSearchParams(window.location.search);
   wantReview = params.get("view") === "review"; // bookmarkable queue link
   wantReports = params.get("view") === "reports"; // bookmarkable reported-content link
+  wantAdmins = params.get("view") === "admins"; // bookmarkable admin-management link
   if (params.get("campaign_id") && params.get("session_id")) {
     returnCampaignId = params.get("campaign_id");
     returnBanner.value = true;
@@ -243,6 +250,7 @@ async function afterAuth() {
   // through the matching guard (admins see it; non-admins get the denied view).
   if (wantReview) { await openAdmin(); return; }
   if (wantReports) { await openReports(); return; }
+  if (wantAdmins) { await openAdmins(); return; }
 
   const acc = await loadAccount();
   if (!acc) {
@@ -577,6 +585,7 @@ async function openAdmin() {
 async function leaveDenied() {
   wantReview = false;
   wantReports = false;
+  wantAdmins = false;
   view.value = "loading";
   const acc = await loadAccount();
   if (acc) { await openDashboard(); return; }
@@ -794,6 +803,87 @@ async function actOnAd(row: ReportRow, action: "pause" | "resume" | "reject", co
   }
 }
 
+// ── admin management (manage-admins fn, migration 0055) ─────────────────────
+type AdminEntry = { user_id: string; email: string; created_at: string };
+type AdminAuditEntry = {
+  actor_email: string; action: "added" | "removed";
+  target_email: string | null; created_at: string;
+};
+const adminsList = ref<AdminEntry[]>([]);
+const adminsAudit = ref<AdminAuditEntry[]>([]);
+const myUserId = ref("");
+const newAdminEmail = ref("");
+const adminsBusy = ref(""); // "add" while adding, or the user_id being removed
+const adminsNotice = ref(""); // inline success message
+
+async function callManageAdmins(body: Record<string, unknown>) {
+  const { data: sess } = await sb.auth.getSession();
+  const res = await fetch(MANAGE_ADMINS_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${sess.session?.access_token}` },
+    body: JSON.stringify(body),
+  });
+  const out = await res.json();
+  if (!res.ok) throw new Error(out.error || "Action failed");
+  return out;
+}
+
+async function reloadAdmins() {
+  const out = await callManageAdmins({ action: "list" });
+  adminsList.value = out.admins ?? [];
+  adminsAudit.value = out.audit ?? [];
+}
+
+async function openAdmins() {
+  if (!isAdmin.value) { view.value = "denied"; return; } // same denied guard as openAdmin
+  msg.value = "";
+  adminsNotice.value = "";
+  wantAdmins = false;
+  view.value = "loading";
+  try {
+    myUserId.value = (await sb.auth.getUser()).data.user?.id ?? "";
+    await reloadAdmins();
+  } catch (e: any) {
+    msg.value = String(e?.message || e);
+  }
+  view.value = "admins";
+}
+
+async function addAdmin() {
+  msg.value = "";
+  adminsNotice.value = "";
+  adminsBusy.value = "add";
+  try {
+    const out = await callManageAdmins({ action: "add", email: newAdminEmail.value });
+    adminsNotice.value = `${out.added?.email ?? newAdminEmail.value.trim()} is now an admin.`;
+    newAdminEmail.value = "";
+    await reloadAdmins();
+  } catch (e: any) {
+    msg.value = String(e?.message || e);
+  } finally {
+    adminsBusy.value = "";
+  }
+}
+
+async function removeAdmin(a: AdminEntry) {
+  if (!confirm(`Remove ${a.email} as an admin? They lose access to the admin views immediately.`)) return;
+  msg.value = "";
+  adminsNotice.value = "";
+  adminsBusy.value = a.user_id;
+  try {
+    await callManageAdmins({ action: "remove", user_id: a.user_id });
+    adminsNotice.value = `${a.email} is no longer an admin.`;
+    await reloadAdmins();
+  } catch (e: any) {
+    msg.value = String(e?.message || e);
+  } finally {
+    adminsBusy.value = "";
+  }
+}
+
+const fmtDateTime = (s: string) =>
+  new Date(s).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+
 // ── builder ─────────────────────────────────────────────────────────────────
 function resetBuilder() {
   editingId.value = null;
@@ -937,6 +1027,7 @@ async function submitCampaign() {
       <span>{{ msg }}</span>
       <button v-if="view === 'dash'" type="button" class="ap-retry" @click="openDashboard">Retry</button>
       <button v-else-if="view === 'admin'" type="button" class="ap-retry" @click="openAdmin">Retry</button>
+      <button v-else-if="view === 'admins'" type="button" class="ap-retry" @click="openAdmins">Retry</button>
     </div>
     <div v-if="returnBanner" class="ap-msg ap-ok">
       Payment received — your ad is now in review. You'll see it as Active here once approved.
@@ -992,6 +1083,7 @@ async function submitCampaign() {
         <div class="ap-actions">
           <button v-if="isAdmin" class="ap-link" @click="openAdmin">Review queue</button>
           <button v-if="isAdmin" class="ap-link" @click="openReports">Reported content{{ reportCount ? ` (${reportCount})` : '' }}</button>
+          <button v-if="isAdmin" class="ap-link" @click="openAdmins">Admins</button>
           <button class="ap-link" @click="signOut">Sign out</button>
         </div>
       </div>
@@ -1149,6 +1241,7 @@ async function submitCampaign() {
         </div>
         <div class="ap-actions">
           <button class="ap-link" @click="openReports">Reported content{{ reportCount ? ` (${reportCount})` : '' }}</button>
+          <button class="ap-link" @click="openAdmins">Admins</button>
           <button v-if="account" class="ap-link" @click="openDashboard">My dashboard</button>
           <button class="ap-link" @click="signOut">Sign out</button>
         </div>
@@ -1209,6 +1302,7 @@ async function submitCampaign() {
         </div>
         <div class="ap-actions">
           <button class="ap-link" @click="openAdmin">Review queue</button>
+          <button class="ap-link" @click="openAdmins">Admins</button>
           <button v-if="account" class="ap-link" @click="openDashboard">My dashboard</button>
           <button class="ap-link" @click="signOut">Sign out</button>
         </div>
@@ -1290,6 +1384,65 @@ async function submitCampaign() {
       <button v-if="reportsHasMore" class="ap-loadmore" :disabled="loadingMore" @click="loadMoreReports">
         {{ loadingMore ? 'Loading…' : 'Load more' }}
       </button>
+    </div>
+
+    <!-- ADMIN MANAGEMENT -->
+    <div v-else-if="view === 'admins'" class="ap-card ap-wide">
+      <div class="ap-top">
+        <div>
+          <h2 class="ap-h" style="margin:0">Admins</h2>
+          <p class="ap-sub">
+            {{ adminsList.length }} admin{{ adminsList.length === 1 ? '' : 's' }} —
+            everyone here can review ads, moderate reports, and manage this list
+          </p>
+        </div>
+        <div class="ap-actions">
+          <button class="ap-link" @click="openAdmin">Review queue</button>
+          <button class="ap-link" @click="openReports">Reported content{{ reportCount ? ` (${reportCount})` : '' }}</button>
+          <button v-if="account" class="ap-link" @click="openDashboard">My dashboard</button>
+          <button class="ap-link" @click="signOut">Sign out</button>
+        </div>
+      </div>
+
+      <div v-if="adminsNotice" class="ap-msg ap-ok">{{ adminsNotice }}</div>
+
+      <form class="ap-addrow" @submit.prevent="addAdmin">
+        <input
+          class="ap-input" v-model="newAdminEmail" type="email" required
+          placeholder="name@example.com — must already have a Nile account"
+        />
+        <button class="nile-btn nile-btn--primary" type="submit" :disabled="!!adminsBusy">
+          {{ adminsBusy === 'add' ? 'Adding…' : 'Add admin' }}
+        </button>
+      </form>
+
+      <table class="ap-tbl ap-tbl--cards">
+        <thead><tr><th>Email</th><th>Added</th><th></th></tr></thead>
+        <tbody>
+          <tr v-for="a in adminsList" :key="a.user_id">
+            <td class="name" data-label="Email">
+              {{ a.email }} <span v-if="a.user_id === myUserId" class="ap-badge ok">You</span>
+            </td>
+            <td data-label="Added">{{ fmtDate(a.created_at) }}</td>
+            <td class="ap-rowactions">
+              <button
+                v-if="a.user_id !== myUserId"
+                class="ap-link ap-danger" :disabled="!!adminsBusy || adminsList.length <= 1"
+                @click="removeAdmin(a)"
+              >{{ adminsBusy === a.user_id ? 'Removing…' : 'Remove' }}</button>
+              <span v-else class="ap-rmeta" style="margin:0">Ask another admin to remove you</span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <template v-if="adminsAudit.length">
+        <h3 class="ap-rh" style="margin-top: var(--nile-s-8)">Recent activity</h3>
+        <p v-for="(e, i) in adminsAudit" :key="i" class="ap-audit">
+          <b>{{ e.actor_email }}</b> {{ e.action }} <b>{{ e.target_email ?? 'unknown' }}</b>
+          <span class="ap-audit-when">{{ fmtDateTime(e.created_at) }}</span>
+        </p>
+      </template>
     </div>
 
     <!-- ADMIN DETAIL MODAL (read-only; approve/reject/pause/resume in-place) -->
@@ -1434,6 +1587,14 @@ async function submitCampaign() {
   border: 1px solid rgba(239, 68, 68, 0.3); border-radius: var(--nile-r-md);
   padding: 10px 18px; font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit; }
 
+/* Admin management: add-by-email row + activity log */
+.ap-addrow { display: flex; gap: var(--nile-s-3); align-items: stretch; margin-bottom: var(--nile-s-6); }
+.ap-addrow .ap-input { margin-bottom: 0; flex: 1; }
+.ap-addrow .nile-btn { flex: none; white-space: nowrap; }
+.ap-audit { color: var(--nile-txt-secondary); font-size: 13px; margin: 0 0 var(--nile-s-2); line-height: 1.5; }
+.ap-audit b { color: var(--nile-txt-primary); font-weight: 600; }
+.ap-audit-when { color: var(--nile-txt-tertiary); font-size: 12px; margin-left: 8px; }
+
 .ap-clickable { cursor: pointer; }
 .ap-danger { color: #fca5a5; }
 .ap-rowactions { white-space: nowrap; }
@@ -1525,5 +1686,7 @@ async function submitCampaign() {
   .ap-rbtns { flex-wrap: wrap; }
   .ap-rbtns .nile-btn, .ap-reject { flex: 1 1 auto; text-align: center; }
   .ap-note-inline { max-width: none; }
+  .ap-addrow { flex-direction: column; }
+  .ap-addrow .nile-btn { width: 100%; }
 }
 </style>

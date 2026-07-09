@@ -26,6 +26,10 @@ export const MODERATE_REPORT_URL =
   import.meta.env.PUBLIC_MODERATE_REPORT_URL ||
   "https://jelmkkvyrliywcdkzhuu.functions.supabase.co/moderate-report";
 
+export const MANAGE_ADMINS_URL =
+  import.meta.env.PUBLIC_MANAGE_ADMINS_URL ||
+  "https://jelmkkvyrliywcdkzhuu.functions.supabase.co/manage-admins";
+
 let _client: SupabaseClient | null = null;
 export function supabase(): SupabaseClient {
   if (_client) return _client;
