@@ -30,6 +30,10 @@ export const MANAGE_ADMINS_URL =
   import.meta.env.PUBLIC_MANAGE_ADMINS_URL ||
   "https://jelmkkvyrliywcdkzhuu.functions.supabase.co/manage-admins";
 
+export const MANAGE_FEATURED_URL =
+  import.meta.env.PUBLIC_MANAGE_FEATURED_URL ||
+  "https://jelmkkvyrliywcdkzhuu.functions.supabase.co/manage-featured";
+
 let _client: SupabaseClient | null = null;
 export function supabase(): SupabaseClient {
   if (_client) return _client;

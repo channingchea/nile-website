@@ -25,3 +25,7 @@ pnpm-debug.log*
 
 # supabase CLI local link metadata
 supabase/.temp/
+
+# Secrets — never commit service-account private keys (security fix #9)
+*firebase-adminsdk*.json
+*service-account*.json

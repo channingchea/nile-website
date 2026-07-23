@@ -38,7 +38,7 @@
   approves it (webhook flips pending_payment → pending_review).
 */
 import { ref, onMounted, onUnmounted, computed } from "vue";
-import { supabase, CREATE_AD_PAYMENT_URL, REVIEW_AD_CAMPAIGN_URL, MODERATE_REPORT_URL, MANAGE_ADMINS_URL } from "../lib/supabase";
+import { supabase, CREATE_AD_PAYMENT_URL, REVIEW_AD_CAMPAIGN_URL, MODERATE_REPORT_URL, MANAGE_ADMINS_URL, MANAGE_FEATURED_URL } from "../lib/supabase";
 
 const HEADLINE_MAX = 60;
 const BODY_MAX = 150;
@@ -67,13 +67,14 @@ const PAGE = 15; // keyset page size (mirrors the app's Paged<T> convention)
 
 const sb = supabase();
 
-const view = ref<"loading" | "auth" | "setup" | "dash" | "build" | "admin" | "reports" | "admins" | "denied">("loading");
+const view = ref<"loading" | "auth" | "setup" | "dash" | "build" | "admin" | "reports" | "admins" | "featured" | "denied">("loading");
 // Set by ?view=review / ?view=reports / ?view=admins so an admin with a brand
 // account lands on the relevant queue rather than their dashboard; non-admins
 // hit the denied guard in openAdmin()/openReports()/openAdmins().
 let wantReview = false;
 let wantReports = false;
 let wantAdmins = false;
+let wantFeatured = false;
 const msg = ref("");
 const busy = ref(false);
 const account = ref<Account | null>(null);
@@ -210,6 +211,7 @@ async function boot() {
   wantReview = params.get("view") === "review"; // bookmarkable queue link
   wantReports = params.get("view") === "reports"; // bookmarkable reported-content link
   wantAdmins = params.get("view") === "admins"; // bookmarkable admin-management link
+  wantFeatured = params.get("view") === "featured"; // bookmarkable featured-curation link
   if (params.get("campaign_id") && params.get("session_id")) {
     returnCampaignId = params.get("campaign_id");
     returnBanner.value = true;
@@ -251,6 +253,7 @@ async function afterAuth() {
   if (wantReview) { await openAdmin(); return; }
   if (wantReports) { await openReports(); return; }
   if (wantAdmins) { await openAdmins(); return; }
+  if (wantFeatured) { await openFeatured(); return; }
 
   const acc = await loadAccount();
   if (!acc) {
@@ -884,6 +887,135 @@ async function removeAdmin(a: AdminEntry) {
 const fmtDateTime = (s: string) =>
   new Date(s).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 
+// ── featured curation (migration 0063 + manage-featured fn) ───────────────────
+type FeaturedEvent = {
+  target_id: string; position: number; title: string;
+  status: string | null; host_username: string | null; missing: boolean;
+};
+type FeaturedCreator = {
+  target_id: string; position: number; username: string;
+  display_name: string; follower_count: number; missing: boolean;
+};
+type EventHit = { target_id: string; title: string; status: string; host_username: string | null };
+type CreatorHit = { target_id: string; username: string; display_name: string; follower_count: number };
+
+const featuredEvents = ref<FeaturedEvent[]>([]);
+const featuredCreators = ref<FeaturedCreator[]>([]);
+const featuredNotice = ref(""); // inline success message
+const featuredBusy = ref(""); // a target_id, or "reorder", while a write is in flight
+const eventQuery = ref("");
+const creatorQuery = ref("");
+const eventHits = ref<EventHit[]>([]);
+const creatorHits = ref<CreatorHit[]>([]);
+const searchingEvents = ref(false);
+const searchingCreators = ref(false);
+
+// Already-featured ids, so search results can show "Featured" instead of "Add".
+const featuredEventIds = computed(() => new Set(featuredEvents.value.map((e) => e.target_id)));
+const featuredCreatorIds = computed(() => new Set(featuredCreators.value.map((c) => c.target_id)));
+
+async function callManageFeatured(body: Record<string, unknown>) {
+  const { data: sess } = await sb.auth.getSession();
+  const res = await fetch(MANAGE_FEATURED_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${sess.session?.access_token}` },
+    body: JSON.stringify(body),
+  });
+  const out = await res.json();
+  if (!res.ok) throw new Error(out.error || "Action failed");
+  return out;
+}
+
+async function reloadFeatured() {
+  const out = await callManageFeatured({ action: "list" });
+  featuredEvents.value = out.events ?? [];
+  featuredCreators.value = out.creators ?? [];
+}
+
+async function openFeatured() {
+  if (!isAdmin.value) { view.value = "denied"; return; } // same denied guard as openAdmins
+  msg.value = "";
+  featuredNotice.value = "";
+  wantFeatured = false;
+  view.value = "loading";
+  try {
+    await reloadFeatured();
+  } catch (e: any) {
+    msg.value = String(e?.message || e);
+  }
+  view.value = "featured";
+}
+
+async function addFeatured(kind: "event" | "creator", targetId: string, label: string) {
+  msg.value = "";
+  featuredNotice.value = "";
+  featuredBusy.value = targetId;
+  try {
+    await callManageFeatured({ action: "add", kind, target_id: targetId });
+    featuredNotice.value = `Featured ${label}.`;
+    if (kind === "event") { eventQuery.value = ""; eventHits.value = []; }
+    else { creatorQuery.value = ""; creatorHits.value = []; }
+    await reloadFeatured();
+  } catch (e: any) {
+    msg.value = String(e?.message || e);
+  } finally {
+    featuredBusy.value = "";
+  }
+}
+
+async function removeFeatured(kind: "event" | "creator", targetId: string, label: string) {
+  if (!confirm(`Remove "${label}" from Featured?`)) return;
+  msg.value = "";
+  featuredNotice.value = "";
+  featuredBusy.value = targetId;
+  try {
+    await callManageFeatured({ action: "remove", kind, target_id: targetId });
+    featuredNotice.value = `Removed "${label}" from Featured.`;
+    await reloadFeatured();
+  } catch (e: any) {
+    msg.value = String(e?.message || e);
+  } finally {
+    featuredBusy.value = "";
+  }
+}
+
+// Swap an entry with its neighbour and persist the whole section's new order.
+async function moveFeatured(kind: "event" | "creator", index: number, dir: -1 | 1) {
+  const list = kind === "event" ? featuredEvents.value : featuredCreators.value;
+  const j = index + dir;
+  if (j < 0 || j >= list.length) return;
+  const ids = list.map((r) => r.target_id);
+  [ids[index], ids[j]] = [ids[j], ids[index]];
+  msg.value = "";
+  featuredNotice.value = "";
+  featuredBusy.value = "reorder";
+  try {
+    await callManageFeatured({ action: "reorder", kind, target_ids: ids });
+    await reloadFeatured();
+  } catch (e: any) {
+    msg.value = String(e?.message || e);
+  } finally {
+    featuredBusy.value = "";
+  }
+}
+
+async function searchFeatured(kind: "event" | "creator") {
+  const q = (kind === "event" ? eventQuery.value : creatorQuery.value).trim();
+  msg.value = "";
+  if (kind === "event") searchingEvents.value = true;
+  else searchingCreators.value = true;
+  try {
+    const out = await callManageFeatured({ action: "search", kind, query: q });
+    if (kind === "event") eventHits.value = out.results ?? [];
+    else creatorHits.value = out.results ?? [];
+  } catch (e: any) {
+    msg.value = String(e?.message || e);
+  } finally {
+    if (kind === "event") searchingEvents.value = false;
+    else searchingCreators.value = false;
+  }
+}
+
 // ── builder ─────────────────────────────────────────────────────────────────
 function resetBuilder() {
   editingId.value = null;
@@ -1084,6 +1216,7 @@ async function submitCampaign() {
           <button v-if="isAdmin" class="ap-link" @click="openAdmin">Review queue</button>
           <button v-if="isAdmin" class="ap-link" @click="openReports">Reported content{{ reportCount ? ` (${reportCount})` : '' }}</button>
           <button v-if="isAdmin" class="ap-link" @click="openAdmins">Admins</button>
+          <button v-if="isAdmin" class="ap-link" @click="openFeatured">Featured</button>
           <button class="ap-link" @click="signOut">Sign out</button>
         </div>
       </div>
@@ -1242,6 +1375,7 @@ async function submitCampaign() {
         <div class="ap-actions">
           <button class="ap-link" @click="openReports">Reported content{{ reportCount ? ` (${reportCount})` : '' }}</button>
           <button class="ap-link" @click="openAdmins">Admins</button>
+          <button class="ap-link" @click="openFeatured">Featured</button>
           <button v-if="account" class="ap-link" @click="openDashboard">My dashboard</button>
           <button class="ap-link" @click="signOut">Sign out</button>
         </div>
@@ -1303,6 +1437,7 @@ async function submitCampaign() {
         <div class="ap-actions">
           <button class="ap-link" @click="openAdmin">Review queue</button>
           <button class="ap-link" @click="openAdmins">Admins</button>
+          <button class="ap-link" @click="openFeatured">Featured</button>
           <button v-if="account" class="ap-link" @click="openDashboard">My dashboard</button>
           <button class="ap-link" @click="signOut">Sign out</button>
         </div>
@@ -1399,6 +1534,7 @@ async function submitCampaign() {
         <div class="ap-actions">
           <button class="ap-link" @click="openAdmin">Review queue</button>
           <button class="ap-link" @click="openReports">Reported content{{ reportCount ? ` (${reportCount})` : '' }}</button>
+          <button class="ap-link" @click="openFeatured">Featured</button>
           <button v-if="account" class="ap-link" @click="openDashboard">My dashboard</button>
           <button class="ap-link" @click="signOut">Sign out</button>
         </div>
@@ -1443,6 +1579,125 @@ async function submitCampaign() {
           <span class="ap-audit-when">{{ fmtDateTime(e.created_at) }}</span>
         </p>
       </template>
+    </div>
+
+    <!-- FEATURED CURATION -->
+    <div v-else-if="view === 'featured'" class="ap-card ap-wide">
+      <div class="ap-top">
+        <div>
+          <h2 class="ap-h" style="margin:0">Featured</h2>
+          <p class="ap-sub">
+            Curate the “Picked by the Nile team” rails in the app’s Discover and
+            onboarding. Order is top-to-bottom.
+          </p>
+        </div>
+        <div class="ap-actions">
+          <button class="ap-link" @click="openAdmin">Review queue</button>
+          <button class="ap-link" @click="openReports">Reported content{{ reportCount ? ` (${reportCount})` : '' }}</button>
+          <button class="ap-link" @click="openAdmins">Admins</button>
+          <button v-if="account" class="ap-link" @click="openDashboard">My dashboard</button>
+          <button class="ap-link" @click="signOut">Sign out</button>
+        </div>
+      </div>
+
+      <div v-if="featuredNotice" class="ap-msg ap-ok">{{ featuredNotice }}</div>
+
+      <!-- Featured events -->
+      <h3 class="ap-rh" style="margin-top: var(--nile-s-6)">Featured events</h3>
+      <p v-if="!featuredEvents.length" class="ap-sub">Nothing featured yet — search below to add one.</p>
+      <table v-else class="ap-tbl ap-tbl--cards">
+        <thead><tr><th>Event</th><th>Host</th><th>Status</th><th>Order</th><th></th></tr></thead>
+        <tbody>
+          <tr v-for="(e, i) in featuredEvents" :key="e.target_id">
+            <td class="name" data-label="Event">
+              {{ e.title }} <span v-if="e.missing" class="ap-badge">deleted</span>
+            </td>
+            <td data-label="Host">{{ e.host_username ? '@' + e.host_username : '—' }}</td>
+            <td data-label="Status">{{ e.status ?? '—' }}</td>
+            <td data-label="Order" class="ap-rowactions">
+              <button class="ap-link" :disabled="i === 0 || !!featuredBusy" @click="moveFeatured('event', i, -1)">↑</button>
+              <button class="ap-link" :disabled="i === featuredEvents.length - 1 || !!featuredBusy" @click="moveFeatured('event', i, 1)">↓</button>
+            </td>
+            <td class="ap-rowactions">
+              <button
+                class="ap-link ap-danger" :disabled="!!featuredBusy"
+                @click="removeFeatured('event', e.target_id, e.title)"
+              >{{ featuredBusy === e.target_id ? 'Removing…' : 'Remove' }}</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <form class="ap-addrow" @submit.prevent="searchFeatured('event')">
+        <input class="ap-input" v-model="eventQuery" type="text" placeholder="Search events by title…" />
+        <button class="nile-btn nile-btn--primary" type="submit" :disabled="searchingEvents">
+          {{ searchingEvents ? 'Searching…' : 'Search' }}
+        </button>
+      </form>
+      <table v-if="eventHits.length" class="ap-tbl ap-tbl--cards">
+        <tbody>
+          <tr v-for="h in eventHits" :key="h.target_id">
+            <td class="name" data-label="Event">{{ h.title }}</td>
+            <td data-label="Host">{{ h.host_username ? '@' + h.host_username : '—' }}</td>
+            <td data-label="Status">{{ h.status }}</td>
+            <td class="ap-rowactions">
+              <span v-if="featuredEventIds.has(h.target_id)" class="ap-badge ok">Featured</span>
+              <button
+                v-else class="ap-link" :disabled="!!featuredBusy"
+                @click="addFeatured('event', h.target_id, h.title)"
+              >{{ featuredBusy === h.target_id ? 'Adding…' : 'Add to featured' }}</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- Featured creators -->
+      <h3 class="ap-rh" style="margin-top: var(--nile-s-8)">Featured creators</h3>
+      <p v-if="!featuredCreators.length" class="ap-sub">Nothing featured yet — search below to add one.</p>
+      <table v-else class="ap-tbl ap-tbl--cards">
+        <thead><tr><th>Creator</th><th>Followers</th><th>Order</th><th></th></tr></thead>
+        <tbody>
+          <tr v-for="(c, i) in featuredCreators" :key="c.target_id">
+            <td class="name" data-label="Creator">
+              {{ c.display_name }} <span class="ap-rmeta">@{{ c.username }}</span>
+              <span v-if="c.missing" class="ap-badge">deleted</span>
+            </td>
+            <td data-label="Followers">{{ c.follower_count }}</td>
+            <td data-label="Order" class="ap-rowactions">
+              <button class="ap-link" :disabled="i === 0 || !!featuredBusy" @click="moveFeatured('creator', i, -1)">↑</button>
+              <button class="ap-link" :disabled="i === featuredCreators.length - 1 || !!featuredBusy" @click="moveFeatured('creator', i, 1)">↓</button>
+            </td>
+            <td class="ap-rowactions">
+              <button
+                class="ap-link ap-danger" :disabled="!!featuredBusy"
+                @click="removeFeatured('creator', c.target_id, c.username)"
+              >{{ featuredBusy === c.target_id ? 'Removing…' : 'Remove' }}</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <form class="ap-addrow" @submit.prevent="searchFeatured('creator')">
+        <input class="ap-input" v-model="creatorQuery" type="text" placeholder="Search creators by name or @username…" />
+        <button class="nile-btn nile-btn--primary" type="submit" :disabled="searchingCreators">
+          {{ searchingCreators ? 'Searching…' : 'Search' }}
+        </button>
+      </form>
+      <table v-if="creatorHits.length" class="ap-tbl ap-tbl--cards">
+        <tbody>
+          <tr v-for="h in creatorHits" :key="h.target_id">
+            <td class="name" data-label="Creator">{{ h.display_name }} <span class="ap-rmeta">@{{ h.username }}</span></td>
+            <td data-label="Followers">{{ h.follower_count }}</td>
+            <td class="ap-rowactions">
+              <span v-if="featuredCreatorIds.has(h.target_id)" class="ap-badge ok">Featured</span>
+              <button
+                v-else class="ap-link" :disabled="!!featuredBusy"
+                @click="addFeatured('creator', h.target_id, h.username)"
+              >{{ featuredBusy === h.target_id ? 'Adding…' : 'Add to featured' }}</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
     </div>
 
     <!-- ADMIN DETAIL MODAL (read-only; approve/reject/pause/resume in-place) -->
