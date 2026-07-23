@@ -113,6 +113,16 @@ const durationDays = ref(7);
 const editingId = ref<string | null>(null); // pending_review campaign being edited
 const existingImageUrl = ref(""); // current creative image when editing
 
+// Rapids video ads (0068): a campaign whose creative is a ≤60s vertical video
+// served between Rapids in the app. Same checkout/review; separate bucket.
+const adKind = ref<"image" | "video">("image");
+const videoFile = ref<File | null>(null);
+const videoPreviewUrl = ref("");
+const videoDurationMs = ref(0);
+const existingVideoUrl = ref(""); // current creative video when editing
+const MAX_VIDEO_BYTES = 100 * 1024 * 1024;
+const VIDEO_MAX_MS = 60_000;
+
 // cropper — pan/zoom the picked image inside a fixed 4:3 frame, export 1200×900
 const cropSrc = ref("");
 const cropZoom = ref(1);
@@ -523,10 +533,20 @@ function statusClass(s: string) {
 type AdminRow = {
   id: string; name: string; status: string; budget_cents: number;
   starts_at: string; ends_at: string; created_at: string;
-  ad_creatives: { image_url: string; headline: string; body: string; click_url: string }[];
+  ad_creatives: {
+    image_url: string | null; headline: string; body: string | null;
+    click_url: string; kind: "image" | "video" | null;
+    video_path: string | null; duration_ms: number | null;
+  }[];
   ad_targeting: { topic_ids: string[] | null }[];
   advertiser_accounts: { name: string; contact_email: string } | null;
 };
+
+// Public playback URL for a video creative (ad-videos bucket, 0068).
+const adVideoUrl = (cr: AdminRow["ad_creatives"][0] | undefined) =>
+  cr?.video_path
+    ? sb.storage.from("ad-videos").getPublicUrl(cr.video_path).data.publicUrl
+    : "";
 const queue = ref<AdminRow[]>([]);
 const adminCursor = ref<string | null>(null);
 const adminHasMore = ref(false);
@@ -534,7 +554,7 @@ const topicNames = ref<Record<string, string>>({});
 const actingOn = ref("");
 
 const ADMIN_SELECT =
-  "id, name, status, budget_cents, starts_at, ends_at, created_at, ad_creatives(image_url, headline, body, click_url), ad_targeting(topic_ids), advertiser_accounts(name, contact_email)";
+  "id, name, status, budget_cents, starts_at, ends_at, created_at, ad_creatives(image_url, headline, body, click_url, kind, video_path, duration_ms), ad_targeting(topic_ids), advertiser_accounts(name, contact_email)";
 function fetchAdmin(cursor: string | null, limit: number) {
   let q = sb.from("ad_campaigns").select(ADMIN_SELECT)
     .in("status", ["pending_review", "active", "paused"])
@@ -1029,6 +1049,12 @@ function resetBuilder() {
   budgetCents.value = 2500;
   durationDays.value = 7;
   cropSrc.value = "";
+  adKind.value = "image";
+  videoFile.value = null;
+  if (videoPreviewUrl.value) URL.revokeObjectURL(videoPreviewUrl.value);
+  videoPreviewUrl.value = "";
+  videoDurationMs.value = 0;
+  existingVideoUrl.value = "";
 }
 async function loadTopics() {
   const { data } = await sb.from("topics").select("id, name").eq("is_active", true).order("sort_order");
@@ -1051,7 +1077,7 @@ async function openEdit(r: Row) {
   const [, { data: camp }] = await Promise.all([
     loadTopics(),
     sb.from("ad_campaigns")
-      .select("ad_creatives(image_url, headline, body, click_url), ad_targeting(topic_ids)")
+      .select("ad_creatives(image_url, headline, body, click_url, kind, video_path), ad_targeting(topic_ids)")
       .eq("id", r.campaign_id).maybeSingle(),
   ]);
   const cr = (camp as any)?.ad_creatives?.[0];
@@ -1061,6 +1087,10 @@ async function openEdit(r: Row) {
   body.value = cr.body ?? "";
   clickUrl.value = cr.click_url ?? "";
   existingImageUrl.value = cr.image_url ?? "";
+  adKind.value = cr.kind === "video" ? "video" : "image";
+  existingVideoUrl.value = cr.video_path
+    ? sb.storage.from("ad-videos").getPublicUrl(cr.video_path).data.publicUrl
+    : "";
   selectedTopics.value = new Set((tg?.topic_ids as string[]) ?? []);
   editingId.value = r.campaign_id;
   view.value = "build";
@@ -1090,10 +1120,91 @@ async function uploadCreative(): Promise<string> {
   if (error) throw error;
   return sb.storage.from("ad-creatives").getPublicUrl(path).data.publicUrl;
 }
+
+// ── Rapids video creative (0068) ────────────────────────────────────────────
+
+function onVideoFile(e: Event) {
+  msg.value = "";
+  const input = e.target as HTMLInputElement;
+  const f = input.files?.[0];
+  input.value = ""; // allow re-picking the same file
+  if (!f) return;
+  if (f.size > MAX_VIDEO_BYTES) { msg.value = "Video must be under 100MB."; return; }
+  if (!["video/mp4", "video/quicktime"].includes(f.type)) {
+    msg.value = "Use an MP4 or MOV video."; return;
+  }
+  // Probe duration client-side (the fn re-validates server-side).
+  const url = URL.createObjectURL(f);
+  const probe = document.createElement("video");
+  probe.preload = "metadata";
+  probe.onloadedmetadata = () => {
+    const ms = Math.round(probe.duration * 1000);
+    if (!ms || ms > VIDEO_MAX_MS + 500) {
+      URL.revokeObjectURL(url);
+      msg.value = "Video must be 60 seconds or shorter.";
+      return;
+    }
+    videoDurationMs.value = Math.min(ms, VIDEO_MAX_MS);
+    videoFile.value = f;
+    if (videoPreviewUrl.value) URL.revokeObjectURL(videoPreviewUrl.value);
+    videoPreviewUrl.value = url;
+  };
+  probe.onerror = () => {
+    URL.revokeObjectURL(url);
+    msg.value = "Couldn't read that video. Use MP4 or MOV.";
+  };
+  probe.src = url;
+}
+
+// First-frame poster for the in-app placeholder while the ad video buffers.
+function captureVideoThumb(src: string): Promise<Blob | null> {
+  return new Promise((resolve) => {
+    const v = document.createElement("video");
+    v.muted = true;
+    v.playsInline = true;
+    v.src = src;
+    v.onloadeddata = () => { v.currentTime = 0.1; };
+    v.onseeked = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = v.videoWidth;
+      canvas.height = v.videoHeight;
+      canvas.getContext("2d")!.drawImage(v, 0, 0);
+      canvas.toBlob((b) => resolve(b), "image/jpeg", 0.85);
+    };
+    v.onerror = () => resolve(null);
+  });
+}
+
+// Upload video (+ best-effort poster) to ad-videos under the account folder,
+// mirroring the ad-creatives RLS convention.
+async function uploadAdVideo(): Promise<{ videoUrl: string; thumbUrl: string | null }> {
+  const f = videoFile.value!;
+  const ext = f.type === "video/quicktime" ? "mov" : "mp4";
+  const base = `${account.value!.id}/${crypto.randomUUID()}`;
+  const { error } = await sb.storage
+    .from("ad-videos")
+    .upload(`${base}.${ext}`, f, { contentType: f.type, upsert: false });
+  if (error) throw error;
+  const videoUrl = sb.storage.from("ad-videos").getPublicUrl(`${base}.${ext}`).data.publicUrl;
+  let thumbUrl: string | null = null;
+  try {
+    const blob = await captureVideoThumb(videoPreviewUrl.value);
+    if (blob) {
+      const { error: tErr } = await sb.storage
+        .from("ad-videos")
+        .upload(`${base}.jpg`, blob, { contentType: "image/jpeg", upsert: false });
+      if (!tErr) thumbUrl = sb.storage.from("ad-videos").getPublicUrl(`${base}.jpg`).data.publicUrl;
+    }
+  } catch { /* poster is cosmetic — never block checkout on it */ }
+  return { videoUrl, thumbUrl };
+}
 async function submitCampaign() {
   msg.value = "";
-  if (cropSrc.value) { msg.value = "Finish cropping the image first."; return; }
-  if (!file.value && !editingId.value) { msg.value = "Add a creative image."; return; }
+  const isVideo = adKind.value === "video";
+  if (!isVideo && cropSrc.value) { msg.value = "Finish cropping the image first."; return; }
+  if (!isVideo && !file.value && !editingId.value) { msg.value = "Add a creative image."; return; }
+  if (isVideo && !videoFile.value && !editingId.value) { msg.value = "Add a creative video."; return; }
+  if (!isVideo && !body.value.trim()) { msg.value = "Add a body text."; return; }
   try { const u = new URL(clickUrl.value); if (u.protocol !== "https:") throw 0; }
   catch { msg.value = "Click URL must start with https://"; return; }
 
@@ -1101,15 +1212,19 @@ async function submitCampaign() {
   try {
     // EDIT: update creative + targeting in place (RLS allows this only while
     // the campaign is pending_review). No payment change — budget is locked.
+    // Video campaigns edit text/targeting only; replacing the video means
+    // withdrawing and resubmitting (keeps the review artifact immutable).
     if (editingId.value) {
-      const imageUrl = file.value ? await uploadCreative() : existingImageUrl.value;
+      const update: Record<string, string | null> = {
+        headline: headline.value.trim(),
+        body: isVideo ? (body.value.trim() || null) : body.value.trim(),
+        click_url: clickUrl.value.trim(),
+      };
+      if (!isVideo) {
+        update.image_url = file.value ? await uploadCreative() : existingImageUrl.value;
+      }
       const { error: crErr } = await sb.from("ad_creatives")
-        .update({
-          image_url: imageUrl,
-          headline: headline.value.trim(),
-          body: body.value.trim(),
-          click_url: clickUrl.value.trim(),
-        })
+        .update(update)
         .eq("campaign_id", editingId.value);
       if (crErr) throw crErr;
       const { error: tgErr } = await sb.from("ad_targeting")
@@ -1121,8 +1236,25 @@ async function submitCampaign() {
     }
 
     // CREATE:
-    // 1) Upload the creative image.
-    const publicUrl = await uploadCreative();
+    // 1) Upload the creative asset (image → ad-creatives, video → ad-videos).
+    const payload: Record<string, unknown> = {
+      advertiser_account_id: account.value!.id,
+      headline: headline.value.trim(),
+      body: body.value.trim(),
+      click_url: clickUrl.value.trim(),
+      topic_ids: [...selectedTopics.value],
+      budget_cents: budgetCents.value,
+      duration_days: durationDays.value,
+    };
+    if (isVideo) {
+      const { videoUrl, thumbUrl } = await uploadAdVideo();
+      payload.creative_kind = "video";
+      payload.video_url = videoUrl;
+      payload.thumb_url = thumbUrl;
+      payload.duration_ms = videoDurationMs.value;
+    } else {
+      payload.image_url = await uploadCreative();
+    }
 
     // 2) Function (service role) creates campaign+creative+targeting, returns Checkout URL.
     const { data: sess } = await sb.auth.getSession();
@@ -1132,16 +1264,7 @@ async function submitCampaign() {
         "Content-Type": "application/json",
         Authorization: `Bearer ${sess.session?.access_token}`,
       },
-      body: JSON.stringify({
-        advertiser_account_id: account.value!.id,
-        image_url: publicUrl,
-        headline: headline.value.trim(),
-        body: body.value.trim(),
-        click_url: clickUrl.value.trim(),
-        topic_ids: [...selectedTopics.value],
-        budget_cents: budgetCents.value,
-        duration_days: durationDays.value,
-      }),
+      body: JSON.stringify(payload),
     });
     const out = await res.json();
     if (!res.ok || !out.checkout_url) throw new Error(out.error || "Payment setup failed");
@@ -1298,33 +1421,62 @@ async function submitCampaign() {
         <button type="button" class="ap-link" @click="openDashboard">Cancel</button>
       </div>
 
-      <label class="ap-label">
-        Creative image (shown 4:3 in feed, max 5MB{{ editingId ? ', leave as-is to keep current' : '' }})
-      </label>
-      <input class="ap-input" type="file" accept="image/*" @change="onFile" />
+      <template v-if="!editingId">
+        <label class="ap-label">Ad format</label>
+        <div class="ap-grid">
+          <button type="button" class="ap-opt" :aria-selected="adKind === 'image'" @click="adKind = 'image'">
+            Image · in-feed card
+          </button>
+          <button type="button" class="ap-opt" :aria-selected="adKind === 'video'" @click="adKind = 'video'">
+            Video · Rapids (≤60s)
+          </button>
+        </div>
+      </template>
 
-      <!-- 4:3 cropper: drag to position, slide to zoom -->
-      <div v-if="cropSrc" class="ap-crop">
-        <div
-          ref="cropFrame" class="ap-crop-frame"
-          @pointerdown="cropDown" @pointermove="cropMove"
-          @pointerup="cropUp" @pointercancel="cropUp"
-        >
-          <img ref="cropImgEl" :src="cropSrc" :style="cropStyle" draggable="false" alt="" @load="onCropImgLoad" />
+      <template v-if="adKind === 'image'">
+        <label class="ap-label">
+          Creative image (shown 4:3 in feed, max 5MB{{ editingId ? ', leave as-is to keep current' : '' }})
+        </label>
+        <input class="ap-input" type="file" accept="image/*" @change="onFile" />
+
+        <!-- 4:3 cropper: drag to position, slide to zoom -->
+        <div v-if="cropSrc" class="ap-crop">
+          <div
+            ref="cropFrame" class="ap-crop-frame"
+            @pointerdown="cropDown" @pointermove="cropMove"
+            @pointerup="cropUp" @pointercancel="cropUp"
+          >
+            <img ref="cropImgEl" :src="cropSrc" :style="cropStyle" draggable="false" alt="" @load="onCropImgLoad" />
+          </div>
+          <input class="ap-crop-zoom" type="range" min="1" max="3" step="0.01" :value="cropZoom" aria-label="Zoom" @input="onZoom" />
+          <div class="ap-rbtns">
+            <button type="button" class="nile-btn nile-btn--primary" @click="applyCrop">Apply crop</button>
+            <button type="button" class="ap-link" @click="cancelCrop">Cancel</button>
+          </div>
         </div>
-        <input class="ap-crop-zoom" type="range" min="1" max="3" step="0.01" :value="cropZoom" aria-label="Zoom" @input="onZoom" />
-        <div class="ap-rbtns">
-          <button type="button" class="nile-btn nile-btn--primary" @click="applyCrop">Apply crop</button>
-          <button type="button" class="ap-link" @click="cancelCrop">Cancel</button>
-        </div>
-      </div>
-      <img v-else-if="previewUrl || existingImageUrl" :src="previewUrl || existingImageUrl" class="ap-preview" alt="" />
+        <img v-else-if="previewUrl || existingImageUrl" :src="previewUrl || existingImageUrl" class="ap-preview" alt="" />
+      </template>
+
+      <template v-else>
+        <label class="ap-label">
+          Creative video (vertical, up to 60 seconds, MP4 or MOV, max 100MB{{ editingId ? " — the video can't be changed while in review" : '' }})
+        </label>
+        <input v-if="!editingId" class="ap-input" type="file" accept="video/mp4,video/quicktime" @change="onVideoFile" />
+        <video
+          v-if="videoPreviewUrl || existingVideoUrl"
+          :src="videoPreviewUrl || existingVideoUrl"
+          class="ap-preview" controls muted playsinline
+        ></video>
+        <p v-if="videoDurationMs" class="ap-note" style="text-align:left">
+          {{ (videoDurationMs / 1000).toFixed(1) }}s — plays with sound between Rapids; viewers can swipe past anytime.
+        </p>
+      </template>
 
       <label class="ap-label">Headline ({{ headline.length }}/{{ HEADLINE_MAX }})</label>
       <input class="ap-input" v-model="headline" :maxlength="HEADLINE_MAX" placeholder="Fresh roast, delivered weekly" required />
 
-      <label class="ap-label">Body ({{ body.length }}/{{ BODY_MAX }})</label>
-      <textarea class="ap-input ap-textarea" v-model="body" :maxlength="BODY_MAX" placeholder="Small-batch coffee shipped to your door. First bag 20% off." required></textarea>
+      <label class="ap-label">Body ({{ body.length }}/{{ BODY_MAX }}{{ adKind === 'video' ? ', optional' : '' }})</label>
+      <textarea class="ap-input ap-textarea" v-model="body" :maxlength="BODY_MAX" placeholder="Small-batch coffee shipped to your door. First bag 20% off." :required="adKind === 'image'"></textarea>
 
       <label class="ap-label">Click-through URL (https)</label>
       <input class="ap-input" v-model="clickUrl" type="url" placeholder="https://acme.com/offer" required />
@@ -1383,10 +1535,19 @@ async function submitCampaign() {
 
       <p v-if="pendingRows.length === 0" class="ap-center">Nothing awaiting review.</p>
       <div v-for="r in pendingRows" :key="r.id" class="ap-review">
-        <img v-if="r.ad_creatives?.[0]" :src="r.ad_creatives[0].image_url" class="ap-preview ap-clickable" alt="" @click="openDetail(r)" />
+        <!-- Video creatives (Rapids ads) get an inline player so admins watch
+             the full spot before approving; images keep the plain preview. -->
+        <video
+          v-if="r.ad_creatives?.[0]?.kind === 'video'"
+          :src="adVideoUrl(r.ad_creatives[0])"
+          class="ap-preview" controls muted playsinline preload="metadata"
+        ></video>
+        <img v-else-if="r.ad_creatives?.[0]" :src="r.ad_creatives[0].image_url ?? ''" class="ap-preview ap-clickable" alt="" @click="openDetail(r)" />
         <h3 class="ap-rh ap-clickable" @click="openDetail(r)">{{ r.ad_creatives?.[0]?.headline ?? r.name }}</h3>
         <p class="ap-rb">{{ r.ad_creatives?.[0]?.body }}</p>
         <p class="ap-rmeta">
+          <span v-if="r.ad_creatives?.[0]?.kind === 'video'">Rapids video ad{{ r.ad_creatives[0].duration_ms ? ` · ${Math.round(r.ad_creatives[0].duration_ms! / 1000)}s` : '' }}</span>
+          <span v-if="r.ad_creatives?.[0]?.kind === 'video'"> · </span>
           <span>{{ r.advertiser_accounts?.name }} ({{ r.advertiser_accounts?.contact_email }})</span> ·
           <span>{{ money(r.budget_cents) }}</span> ·
           <span>Topics: {{ topicsFor(r) }}</span> ·
@@ -1707,7 +1868,12 @@ async function submitCampaign() {
           <h3 class="ap-rh" style="margin:0">{{ detail.ad_creatives?.[0]?.headline ?? detail.name }}</h3>
           <button type="button" class="ap-x" aria-label="Close" @click="closeDetail">×</button>
         </div>
-        <img v-if="detail.ad_creatives?.[0]" :src="detail.ad_creatives[0].image_url" class="ap-preview" alt="" />
+        <video
+          v-if="detail.ad_creatives?.[0]?.kind === 'video'"
+          :src="adVideoUrl(detail.ad_creatives[0])"
+          class="ap-preview" controls muted playsinline preload="metadata"
+        ></video>
+        <img v-else-if="detail.ad_creatives?.[0]" :src="detail.ad_creatives[0].image_url ?? ''" class="ap-preview" alt="" />
         <p v-if="detail.ad_creatives?.[0]?.body" class="ap-rb">{{ detail.ad_creatives[0].body }}</p>
         <dl class="ap-dl">
           <div><dt>Advertiser</dt><dd>{{ detail.advertiser_accounts?.name ?? 'Host boost' }}<template v-if="detail.advertiser_accounts"> ({{ detail.advertiser_accounts.contact_email }})</template></dd></div>
