@@ -113,8 +113,8 @@ const durationDays = ref(7);
 const editingId = ref<string | null>(null); // pending_review campaign being edited
 const existingImageUrl = ref(""); // current creative image when editing
 
-// Rapids video ads (0068): a campaign whose creative is a ≤60s vertical video
-// served between Rapids in the app. Same checkout/review; separate bucket.
+// Currents video ads (0068): a campaign whose creative is a ≤60s vertical video
+// served between Currents in the app. Same checkout/review; separate bucket.
 const adKind = ref<"image" | "video">("image");
 const videoFile = ref<File | null>(null);
 const videoPreviewUrl = ref("");
@@ -1121,7 +1121,7 @@ async function uploadCreative(): Promise<string> {
   return sb.storage.from("ad-creatives").getPublicUrl(path).data.publicUrl;
 }
 
-// ── Rapids video creative (0068) ────────────────────────────────────────────
+// ── Currents video creative (0068) ────────────────────────────────────────────
 
 function onVideoFile(e: Event) {
   msg.value = "";
@@ -1428,7 +1428,7 @@ async function submitCampaign() {
             Image · in-feed card
           </button>
           <button type="button" class="ap-opt" :aria-selected="adKind === 'video'" @click="adKind = 'video'">
-            Video · Rapids (≤60s)
+            Video · Currents (≤60s)
           </button>
         </div>
       </template>
@@ -1468,7 +1468,7 @@ async function submitCampaign() {
           class="ap-preview" controls muted playsinline
         ></video>
         <p v-if="videoDurationMs" class="ap-note" style="text-align:left">
-          {{ (videoDurationMs / 1000).toFixed(1) }}s — plays with sound between Rapids; viewers can swipe past anytime.
+          {{ (videoDurationMs / 1000).toFixed(1) }}s — plays with sound between Currents; viewers can swipe past anytime.
         </p>
       </template>
 
@@ -1535,7 +1535,7 @@ async function submitCampaign() {
 
       <p v-if="pendingRows.length === 0" class="ap-center">Nothing awaiting review.</p>
       <div v-for="r in pendingRows" :key="r.id" class="ap-review">
-        <!-- Video creatives (Rapids ads) get an inline player so admins watch
+        <!-- Video creatives (Currents ads) get an inline player so admins watch
              the full spot before approving; images keep the plain preview. -->
         <video
           v-if="r.ad_creatives?.[0]?.kind === 'video'"
@@ -1546,7 +1546,7 @@ async function submitCampaign() {
         <h3 class="ap-rh ap-clickable" @click="openDetail(r)">{{ r.ad_creatives?.[0]?.headline ?? r.name }}</h3>
         <p class="ap-rb">{{ r.ad_creatives?.[0]?.body }}</p>
         <p class="ap-rmeta">
-          <span v-if="r.ad_creatives?.[0]?.kind === 'video'">Rapids video ad{{ r.ad_creatives[0].duration_ms ? ` · ${Math.round(r.ad_creatives[0].duration_ms! / 1000)}s` : '' }}</span>
+          <span v-if="r.ad_creatives?.[0]?.kind === 'video'">Currents video ad{{ r.ad_creatives[0].duration_ms ? ` · ${Math.round(r.ad_creatives[0].duration_ms! / 1000)}s` : '' }}</span>
           <span v-if="r.ad_creatives?.[0]?.kind === 'video'"> · </span>
           <span>{{ r.advertiser_accounts?.name }} ({{ r.advertiser_accounts?.contact_email }})</span> ·
           <span>{{ money(r.budget_cents) }}</span> ·
