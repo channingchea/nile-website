@@ -67,14 +67,16 @@ const PAGE = 15; // keyset page size (mirrors the app's Paged<T> convention)
 
 const sb = supabase();
 
-const view = ref<"loading" | "auth" | "setup" | "dash" | "build" | "admin" | "reports" | "admins" | "featured" | "denied">("loading");
-// Set by ?view=review / ?view=reports / ?view=admins so an admin with a brand
-// account lands on the relevant queue rather than their dashboard; non-admins
-// hit the denied guard in openAdmin()/openReports()/openAdmins().
+const view = ref<"loading" | "auth" | "setup" | "dash" | "build" | "admin" | "reports" | "admins" | "featured" | "feedback" | "denied">("loading");
+// Set by ?view=review / ?view=reports / ?view=admins / ?view=feedback so an
+// admin with a brand account lands on the relevant queue rather than their
+// dashboard; non-admins hit the denied guard in openAdmin()/openReports()/
+// openAdmins()/openFeedback().
 let wantReview = false;
 let wantReports = false;
 let wantAdmins = false;
 let wantFeatured = false;
+let wantFeedback = false;
 const msg = ref("");
 const busy = ref(false);
 const account = ref<Account | null>(null);
@@ -222,6 +224,7 @@ async function boot() {
   wantReports = params.get("view") === "reports"; // bookmarkable reported-content link
   wantAdmins = params.get("view") === "admins"; // bookmarkable admin-management link
   wantFeatured = params.get("view") === "featured"; // bookmarkable featured-curation link
+  wantFeedback = params.get("view") === "feedback"; // bookmarkable bug-report link
   if (params.get("campaign_id") && params.get("session_id")) {
     returnCampaignId = params.get("campaign_id");
     returnBanner.value = true;
@@ -256,7 +259,10 @@ async function afterAuth() {
   // Own-row RLS on `admins` means this returns a row only for admins.
   const { data: adminRow } = await sb.from("admins").select("user_id").maybeSingle();
   isAdmin.value = !!adminRow;
-  if (isAdmin.value) await loadReportCount();
+  if (isAdmin.value) {
+    await loadReportCount();
+    await loadFeedbackCount();
+  }
 
   // ?view=review / ?view=reports bookmarks: send anyone who asked for a queue
   // through the matching guard (admins see it; non-admins get the denied view).
@@ -264,6 +270,7 @@ async function afterAuth() {
   if (wantReports) { await openReports(); return; }
   if (wantAdmins) { await openAdmins(); return; }
   if (wantFeatured) { await openFeatured(); return; }
+  if (wantFeedback) { await openFeedback(); return; }
 
   const acc = await loadAccount();
   if (!acc) {
@@ -826,6 +833,130 @@ async function actOnAd(row: ReportRow, action: "pause" | "resume" | "reject", co
   }
 }
 
+// ── bug & feature reports (migration 0077) ──────────────────────────────────
+// Straight table reads/writes rather than an edge fn: `feedback_reports` RLS
+// already gates select/update on is_admin(), and nothing here needs the
+// service role the way moderate-report does.
+type FeedbackRow = {
+  id: string;
+  reporter_id: string | null;
+  kind: "bug" | "feature";
+  title: string;
+  body: string;
+  status: "new" | "triaged" | "in_progress" | "resolved" | "wont_fix";
+  admin_note: string | null;
+  diagnostics: Record<string, any>;
+  error_log: { at: string; message: string; stack?: string }[];
+  image_paths: string[];
+  source: "settings" | "shake";
+  created_at: string;
+  resolved_at: string | null;
+};
+
+const FEEDBACK_STATUSES = ["new", "triaged", "in_progress", "resolved", "wont_fix"] as const;
+const FEEDBACK_STATUS_LABELS: Record<string, string> = {
+  new: "New", triaged: "Triaged", in_progress: "In progress",
+  resolved: "Resolved", wont_fix: "Won't fix",
+};
+
+const feedbackQueue = ref<FeedbackRow[]>([]);
+const feedbackCursor = ref<string | null>(null);
+const feedbackHasMore = ref(false);
+const feedbackCount = ref(0); // untriaged (new) count for the nav badge
+const feedbackKind = ref<"all" | "bug" | "feature">("all");
+const feedbackStatus = ref<"open" | "all" | typeof FEEDBACK_STATUSES[number]>("open");
+const actingOnFeedback = ref("");
+const expandedFeedback = ref<string | null>(null);
+// Per-row unsaved edits, keyed by report id, so switching rows doesn't lose them.
+const feedbackDrafts = ref<Record<string, { status: string; note: string }>>({});
+// Signed URLs are short-lived (private bucket), so they're fetched per expand.
+const feedbackImages = ref<Record<string, string[]>>({});
+
+async function loadFeedbackCount() {
+  if (!isAdmin.value) return;
+  const { count } = await sb.from("feedback_reports")
+    .select("id", { count: "exact", head: true }).eq("status", "new");
+  feedbackCount.value = count ?? 0;
+}
+
+// One query builder for the queue + "load more", so the filters can't drift
+// between the two paths.
+function feedbackQuery(before: string | null, limit: number) {
+  let q = sb.from("feedback_reports").select("*");
+  if (feedbackKind.value !== "all") q = q.eq("kind", feedbackKind.value);
+  if (feedbackStatus.value === "open") {
+    q = q.in("status", ["new", "triaged", "in_progress"]);
+  } else if (feedbackStatus.value !== "all") {
+    q = q.eq("status", feedbackStatus.value);
+  }
+  if (before) q = q.lt("created_at", before);
+  return q.order("created_at", { ascending: false }).limit(limit);
+}
+
+async function openFeedback() {
+  if (!isAdmin.value) { view.value = "denied"; return; } // same denied guard as openAdmin
+  msg.value = "";
+  wantFeedback = false;
+  view.value = "loading";
+  await refreshFeedback();
+  await loadFeedbackCount();
+  view.value = "feedback";
+}
+
+async function refreshFeedback() {
+  const { data, error } = await feedbackQuery(null, PAGE);
+  if (error) msg.value = error.message;
+  const page = (data as FeedbackRow[]) ?? [];
+  feedbackQueue.value = page;
+  feedbackCursor.value = page.length ? page[page.length - 1].created_at : null;
+  feedbackHasMore.value = page.length === PAGE;
+}
+
+async function loadMoreFeedback() {
+  if (loadingMore.value || !feedbackHasMore.value) return;
+  loadingMore.value = true;
+  const { data, error } = await feedbackQuery(feedbackCursor.value, PAGE);
+  if (error) msg.value = error.message;
+  const page = (data as FeedbackRow[]) ?? [];
+  feedbackQueue.value = [...feedbackQueue.value, ...page];
+  feedbackCursor.value = page.length ? page[page.length - 1].created_at : feedbackCursor.value;
+  feedbackHasMore.value = page.length === PAGE;
+  loadingMore.value = false;
+}
+
+async function toggleFeedback(r: FeedbackRow) {
+  if (expandedFeedback.value === r.id) { expandedFeedback.value = null; return; }
+  expandedFeedback.value = r.id;
+  feedbackDrafts.value[r.id] ??= { status: r.status, note: r.admin_note ?? "" };
+  if (r.image_paths.length && !feedbackImages.value[r.id]) {
+    const { data } = await sb.storage.from("feedback")
+      .createSignedUrls(r.image_paths, 600);
+    feedbackImages.value[r.id] =
+      (data ?? []).map((d: any) => d.signedUrl).filter(Boolean);
+  }
+}
+
+// Saving a status of resolved/wont_fix fires the DB trigger that notifies the
+// reporter in-app — so the note is what they read. Write both in one update.
+async function saveFeedback(r: FeedbackRow) {
+  const draft = feedbackDrafts.value[r.id];
+  if (!draft) return;
+  msg.value = "";
+  actingOnFeedback.value = r.id;
+  try {
+    const { error } = await sb.from("feedback_reports")
+      .update({ status: draft.status, admin_note: draft.note.trim() || null })
+      .eq("id", r.id);
+    if (error) throw new Error(error.message);
+    await refreshFeedback();
+    await loadFeedbackCount();
+  } catch (e: any) {
+    msg.value = String(e?.message || e);
+  } finally {
+    actingOnFeedback.value = "";
+  }
+}
+
 // ── admin management (manage-admins fn, migration 0055) ─────────────────────
 type AdminEntry = { user_id: string; email: string; created_at: string };
 type AdminAuditEntry = {
@@ -1283,6 +1414,7 @@ async function submitCampaign() {
       <button v-if="view === 'dash'" type="button" class="ap-retry" @click="openDashboard">Retry</button>
       <button v-else-if="view === 'admin'" type="button" class="ap-retry" @click="openAdmin">Retry</button>
       <button v-else-if="view === 'admins'" type="button" class="ap-retry" @click="openAdmins">Retry</button>
+      <button v-else-if="view === 'feedback'" type="button" class="ap-retry" @click="openFeedback">Retry</button>
     </div>
     <div v-if="returnBanner" class="ap-msg ap-ok">
       Payment received. Your ad is now in review. You'll see it as Active here once approved.
@@ -1340,6 +1472,7 @@ async function submitCampaign() {
           <button v-if="isAdmin" class="ap-link" @click="openReports">Reported content{{ reportCount ? ` (${reportCount})` : '' }}</button>
           <button v-if="isAdmin" class="ap-link" @click="openAdmins">Admins</button>
           <button v-if="isAdmin" class="ap-link" @click="openFeatured">Featured</button>
+          <button v-if="isAdmin" class="ap-link" @click="openFeedback">Bug reports{{ feedbackCount ? ` (${feedbackCount})` : '' }}</button>
           <button class="ap-link" @click="signOut">Sign out</button>
         </div>
       </div>
@@ -1528,6 +1661,7 @@ async function submitCampaign() {
           <button class="ap-link" @click="openReports">Reported content{{ reportCount ? ` (${reportCount})` : '' }}</button>
           <button class="ap-link" @click="openAdmins">Admins</button>
           <button class="ap-link" @click="openFeatured">Featured</button>
+          <button class="ap-link" @click="openFeedback">Bug reports{{ feedbackCount ? ` (${feedbackCount})` : '' }}</button>
           <button v-if="account" class="ap-link" @click="openDashboard">My dashboard</button>
           <button class="ap-link" @click="signOut">Sign out</button>
         </div>
@@ -1599,6 +1733,7 @@ async function submitCampaign() {
           <button class="ap-link" @click="openAdmin">Review queue</button>
           <button class="ap-link" @click="openAdmins">Admins</button>
           <button class="ap-link" @click="openFeatured">Featured</button>
+          <button class="ap-link" @click="openFeedback">Bug reports{{ feedbackCount ? ` (${feedbackCount})` : '' }}</button>
           <button v-if="account" class="ap-link" @click="openDashboard">My dashboard</button>
           <button class="ap-link" @click="signOut">Sign out</button>
         </div>
@@ -1682,6 +1817,113 @@ async function submitCampaign() {
       </button>
     </div>
 
+    <!-- BUG & FEATURE REPORTS -->
+    <div v-else-if="view === 'feedback'" class="ap-card ap-wide">
+      <div class="ap-top">
+        <div>
+          <h2 class="ap-h" style="margin:0">Bug reports &amp; ideas</h2>
+          <p class="ap-sub">{{ feedbackCount }} new · sent from the app's Settings, or by shaking the phone in a beta build</p>
+        </div>
+        <div class="ap-actions">
+          <button class="ap-link" @click="openAdmin">Review queue</button>
+          <button class="ap-link" @click="openReports">Reported content{{ reportCount ? ` (${reportCount})` : '' }}</button>
+          <button class="ap-link" @click="openAdmins">Admins</button>
+          <button class="ap-link" @click="openFeatured">Featured</button>
+          <button v-if="account" class="ap-link" @click="openDashboard">My dashboard</button>
+          <button class="ap-link" @click="signOut">Sign out</button>
+        </div>
+      </div>
+
+      <div class="ap-fb-filters">
+        <select v-model="feedbackKind" @change="refreshFeedback">
+          <option value="all">All kinds</option>
+          <option value="bug">Bugs</option>
+          <option value="feature">Ideas</option>
+        </select>
+        <select v-model="feedbackStatus" @change="refreshFeedback">
+          <option value="open">Open</option>
+          <option value="all">All statuses</option>
+          <option v-for="s in FEEDBACK_STATUSES" :key="s" :value="s">{{ FEEDBACK_STATUS_LABELS[s] }}</option>
+        </select>
+      </div>
+
+      <p v-if="feedbackQueue.length === 0" class="ap-center">Nothing here right now.</p>
+
+      <div v-for="r in feedbackQueue" :key="r.id" class="ap-review">
+        <div class="ap-report-head">
+          <span class="ap-badge muted">{{ r.kind === 'bug' ? 'Bug' : 'Idea' }}</span>
+          <span class="ap-badge" :class="r.status === 'new' ? 'err' : 'muted'">{{ FEEDBACK_STATUS_LABELS[r.status] }}</span>
+          <span v-if="r.source === 'shake'" class="ap-badge muted">Shake</span>
+          <span class="ap-rmeta">{{ fmtDate(r.created_at) }}</span>
+        </div>
+
+        <h3 class="ap-rh">{{ r.title }}</h3>
+        <p class="ap-rb" style="white-space: pre-wrap">{{ r.body }}</p>
+
+        <p class="ap-rmeta">
+          {{ r.diagnostics.device || 'unknown device' }} ·
+          {{ r.diagnostics.platform }} {{ r.diagnostics.os_version || '' }} ·
+          v{{ r.diagnostics.app_version }} ({{ r.diagnostics.build_number }})
+          <template v-if="r.image_paths.length"> · {{ r.image_paths.length }} screenshot{{ r.image_paths.length === 1 ? '' : 's' }}</template>
+          <template v-if="r.error_log.length"> · {{ r.error_log.length }} error{{ r.error_log.length === 1 ? '' : 's' }}</template>
+        </p>
+
+        <div class="ap-rbtns">
+          <button class="ap-link" @click="toggleFeedback(r)">
+            {{ expandedFeedback === r.id ? 'Hide details' : 'Open' }}
+          </button>
+        </div>
+
+        <div v-if="expandedFeedback === r.id" class="ap-fb-detail">
+          <div v-if="feedbackImages[r.id]?.length" class="ap-fb-shots">
+            <a v-for="(u, i) in feedbackImages[r.id]" :key="i" :href="u" target="_blank" rel="noopener">
+              <img :src="u" class="ap-preview" alt="Screenshot from the report" />
+            </a>
+          </div>
+
+          <h4 class="ap-fb-h">Diagnostics</h4>
+          <table class="ap-tbl">
+            <tbody>
+              <tr v-for="(v, k) in r.diagnostics" :key="k">
+                <td class="name">{{ k }}</td>
+                <td>{{ v }}</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <template v-if="r.error_log.length">
+            <h4 class="ap-fb-h">Recent errors</h4>
+            <pre v-for="(e, i) in r.error_log" :key="i" class="ap-fb-err">{{ e.at }}
+{{ e.message }}{{ e.stack ? '\n' + e.stack : '' }}</pre>
+          </template>
+
+          <h4 class="ap-fb-h">Triage</h4>
+          <div class="ap-fb-triage">
+            <select v-model="feedbackDrafts[r.id].status">
+              <option v-for="s in FEEDBACK_STATUSES" :key="s" :value="s">{{ FEEDBACK_STATUS_LABELS[s] }}</option>
+            </select>
+            <textarea
+              v-model="feedbackDrafts[r.id].note"
+              rows="3"
+              placeholder="Note back to the reporter — they see this in the app when you resolve it."
+            ></textarea>
+            <button
+              class="nile-btn nile-btn--primary"
+              :disabled="!!actingOnFeedback"
+              @click="saveFeedback(r)"
+            >{{ actingOnFeedback === r.id ? 'Saving…' : 'Save' }}</button>
+          </div>
+          <p class="ap-rmeta">
+            Setting this to Resolved or Won't fix notifies the reporter in the app, once.
+          </p>
+        </div>
+      </div>
+
+      <button v-if="feedbackHasMore" class="ap-loadmore" :disabled="loadingMore" @click="loadMoreFeedback">
+        {{ loadingMore ? 'Loading…' : 'Load more' }}
+      </button>
+    </div>
+
     <!-- ADMIN MANAGEMENT -->
     <div v-else-if="view === 'admins'" class="ap-card ap-wide">
       <div class="ap-top">
@@ -1696,6 +1938,7 @@ async function submitCampaign() {
           <button class="ap-link" @click="openAdmin">Review queue</button>
           <button class="ap-link" @click="openReports">Reported content{{ reportCount ? ` (${reportCount})` : '' }}</button>
           <button class="ap-link" @click="openFeatured">Featured</button>
+          <button class="ap-link" @click="openFeedback">Bug reports{{ feedbackCount ? ` (${feedbackCount})` : '' }}</button>
           <button v-if="account" class="ap-link" @click="openDashboard">My dashboard</button>
           <button class="ap-link" @click="signOut">Sign out</button>
         </div>
@@ -1756,6 +1999,7 @@ async function submitCampaign() {
           <button class="ap-link" @click="openAdmin">Review queue</button>
           <button class="ap-link" @click="openReports">Reported content{{ reportCount ? ` (${reportCount})` : '' }}</button>
           <button class="ap-link" @click="openAdmins">Admins</button>
+          <button class="ap-link" @click="openFeedback">Bug reports{{ feedbackCount ? ` (${feedbackCount})` : '' }}</button>
           <button v-if="account" class="ap-link" @click="openDashboard">My dashboard</button>
           <button class="ap-link" @click="signOut">Sign out</button>
         </div>
@@ -2022,6 +2266,21 @@ async function submitCampaign() {
 .ap-rowactions .ap-link + .ap-link { margin-left: 12px; }
 .ap-note-inline { color: var(--nile-txt-tertiary); font-size: 12px; font-weight: 400;
   margin-top: 4px; line-height: 1.4; max-width: 340px; }
+
+/* Bug reports & ideas */
+.ap-fb-filters { display: flex; gap: var(--nile-s-3); margin-bottom: var(--nile-s-5); flex-wrap: wrap; }
+.ap-fb-detail { border-top: 1px solid var(--nile-border); margin-top: var(--nile-s-4);
+  padding-top: var(--nile-s-4); }
+.ap-fb-h { font-size: 13px; text-transform: uppercase; letter-spacing: 1.2px;
+  color: var(--nile-txt-tertiary); margin: var(--nile-s-4) 0 var(--nile-s-2); }
+.ap-fb-shots { display: flex; gap: var(--nile-s-3); flex-wrap: wrap; }
+.ap-fb-shots img { width: 140px; aspect-ratio: 9 / 16; object-fit: cover; }
+.ap-fb-err { background: var(--nile-bg-page); border: 1px solid var(--nile-border);
+  border-radius: var(--nile-r-sm); padding: var(--nile-s-3); font-size: 11px;
+  line-height: 1.45; overflow-x: auto; white-space: pre-wrap; word-break: break-word;
+  color: var(--nile-txt-secondary); margin: 0 0 var(--nile-s-2); max-height: 220px; }
+.ap-fb-triage { display: grid; gap: var(--nile-s-3); max-width: 520px; }
+.ap-fb-triage textarea { width: 100%; resize: vertical; }
 
 .ap-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.6);
   backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
