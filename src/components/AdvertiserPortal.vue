@@ -1405,6 +1405,30 @@ async function submitCampaign() {
     busy.value = false;
   }
 }
+
+// ── portal nav ──────────────────────────────────────────────────────────────
+// One source of truth for the tab strip, rendered once above the view cards so
+// every page shows the same set. Admin tabs are gated on isAdmin (the views
+// themselves keep their own `denied` guards — this only hides the entry point).
+type Tab = { key: string; label: string; count?: number; go: () => void };
+
+const portalTabs = computed<Tab[]>(() => {
+  const t: Tab[] = [];
+  if (account.value) t.push({ key: "dash", label: "My dashboard", go: openDashboard });
+  if (isAdmin.value) {
+    t.push({ key: "admin", label: "Review queue", go: openAdmin });
+    t.push({ key: "reports", label: "Reported content", count: reportCount.value, go: openReports });
+    t.push({ key: "feedback", label: "Bug reports", count: feedbackCount.value, go: openFeedback });
+    t.push({ key: "featured", label: "Featured", go: openFeatured });
+    t.push({ key: "admins", label: "Admins", go: openAdmins });
+  }
+  return t;
+});
+
+const TABBED_VIEWS = ["dash", "build", "admin", "reports", "feedback", "admins", "featured"];
+const showTabs = computed(() => TABBED_VIEWS.includes(view.value) && portalTabs.value.length > 0);
+// The builder is a sub-page of the dashboard, so it keeps that tab lit.
+const activeTab = computed(() => (view.value === "build" ? "dash" : view.value));
 </script>
 
 <template>
@@ -1419,6 +1443,20 @@ async function submitCampaign() {
     <div v-if="returnBanner" class="ap-msg ap-ok">
       Payment received. Your ad is now in review. You'll see it as Active here once approved.
     </div>
+
+    <!-- Folder tabs: one strip for the whole portal, same links on every page -->
+    <nav v-if="showTabs" class="ap-tabs" :class="{ 'ap-tabs--narrow': view === 'build' }" aria-label="Portal sections">
+      <button
+        v-for="t in portalTabs" :key="t.key" type="button" class="ap-tab"
+        :class="{ 'is-active': activeTab === t.key }"
+        :aria-current="activeTab === t.key ? 'page' : undefined"
+        @click="t.go()"
+      >
+        {{ t.label }}<span v-if="t.count" class="ap-tab-count">{{ t.count }}</span>
+      </button>
+      <span class="ap-tabs-gap"></span>
+      <button type="button" class="ap-tab ap-tab--quiet" @click="signOut">Sign out</button>
+    </nav>
 
     <div v-if="view === 'loading'" class="ap-center">Loading…</div>
 
@@ -1466,14 +1504,6 @@ async function submitCampaign() {
         <div>
           <h2 class="ap-h" style="margin:0">{{ account?.name || 'Your campaigns' }}</h2>
           <p class="ap-sub">{{ account?.contact_email }}</p>
-        </div>
-        <div class="ap-actions">
-          <button v-if="isAdmin" class="ap-link" @click="openAdmin">Review queue</button>
-          <button v-if="isAdmin" class="ap-link" @click="openReports">Reported content{{ reportCount ? ` (${reportCount})` : '' }}</button>
-          <button v-if="isAdmin" class="ap-link" @click="openAdmins">Admins</button>
-          <button v-if="isAdmin" class="ap-link" @click="openFeatured">Featured</button>
-          <button v-if="isAdmin" class="ap-link" @click="openFeedback">Bug reports{{ feedbackCount ? ` (${feedbackCount})` : '' }}</button>
-          <button class="ap-link" @click="signOut">Sign out</button>
         </div>
       </div>
 
@@ -1657,14 +1687,6 @@ async function submitCampaign() {
           <h2 class="ap-h" style="margin:0">Review queue</h2>
           <p class="ap-sub">{{ pendingRows.length }} awaiting review</p>
         </div>
-        <div class="ap-actions">
-          <button class="ap-link" @click="openReports">Reported content{{ reportCount ? ` (${reportCount})` : '' }}</button>
-          <button class="ap-link" @click="openAdmins">Admins</button>
-          <button class="ap-link" @click="openFeatured">Featured</button>
-          <button class="ap-link" @click="openFeedback">Bug reports{{ feedbackCount ? ` (${feedbackCount})` : '' }}</button>
-          <button v-if="account" class="ap-link" @click="openDashboard">My dashboard</button>
-          <button class="ap-link" @click="signOut">Sign out</button>
-        </div>
       </div>
 
       <p v-if="pendingRows.length === 0" class="ap-center">Nothing awaiting review.</p>
@@ -1728,14 +1750,6 @@ async function submitCampaign() {
         <div>
           <h2 class="ap-h" style="margin:0">Reported content</h2>
           <p class="ap-sub">{{ reportCount }} open report{{ reportCount === 1 ? '' : 's' }}</p>
-        </div>
-        <div class="ap-actions">
-          <button class="ap-link" @click="openAdmin">Review queue</button>
-          <button class="ap-link" @click="openAdmins">Admins</button>
-          <button class="ap-link" @click="openFeatured">Featured</button>
-          <button class="ap-link" @click="openFeedback">Bug reports{{ feedbackCount ? ` (${feedbackCount})` : '' }}</button>
-          <button v-if="account" class="ap-link" @click="openDashboard">My dashboard</button>
-          <button class="ap-link" @click="signOut">Sign out</button>
         </div>
       </div>
 
@@ -1823,14 +1837,6 @@ async function submitCampaign() {
         <div>
           <h2 class="ap-h" style="margin:0">Bug reports &amp; ideas</h2>
           <p class="ap-sub">{{ feedbackCount }} new · sent from the app's Settings, or by shaking the phone in a beta build</p>
-        </div>
-        <div class="ap-actions">
-          <button class="ap-link" @click="openAdmin">Review queue</button>
-          <button class="ap-link" @click="openReports">Reported content{{ reportCount ? ` (${reportCount})` : '' }}</button>
-          <button class="ap-link" @click="openAdmins">Admins</button>
-          <button class="ap-link" @click="openFeatured">Featured</button>
-          <button v-if="account" class="ap-link" @click="openDashboard">My dashboard</button>
-          <button class="ap-link" @click="signOut">Sign out</button>
         </div>
       </div>
 
@@ -1934,14 +1940,6 @@ async function submitCampaign() {
             everyone here can review ads, moderate reports, and manage this list
           </p>
         </div>
-        <div class="ap-actions">
-          <button class="ap-link" @click="openAdmin">Review queue</button>
-          <button class="ap-link" @click="openReports">Reported content{{ reportCount ? ` (${reportCount})` : '' }}</button>
-          <button class="ap-link" @click="openFeatured">Featured</button>
-          <button class="ap-link" @click="openFeedback">Bug reports{{ feedbackCount ? ` (${feedbackCount})` : '' }}</button>
-          <button v-if="account" class="ap-link" @click="openDashboard">My dashboard</button>
-          <button class="ap-link" @click="signOut">Sign out</button>
-        </div>
       </div>
 
       <div v-if="adminsNotice" class="ap-msg ap-ok">{{ adminsNotice }}</div>
@@ -1994,14 +1992,6 @@ async function submitCampaign() {
             Curate the “Picked by the Nile team” rails in the app’s Discover and
             onboarding. Order is top-to-bottom.
           </p>
-        </div>
-        <div class="ap-actions">
-          <button class="ap-link" @click="openAdmin">Review queue</button>
-          <button class="ap-link" @click="openReports">Reported content{{ reportCount ? ` (${reportCount})` : '' }}</button>
-          <button class="ap-link" @click="openAdmins">Admins</button>
-          <button class="ap-link" @click="openFeedback">Bug reports{{ feedbackCount ? ` (${feedbackCount})` : '' }}</button>
-          <button v-if="account" class="ap-link" @click="openDashboard">My dashboard</button>
-          <button class="ap-link" @click="signOut">Sign out</button>
         </div>
       </div>
 
@@ -2238,7 +2228,38 @@ async function submitCampaign() {
 .ap-badge.err { background: rgba(239, 68, 68, 0.12); color: #fca5a5; }
 .ap-badge.muted { background: var(--nile-bg-raised); color: var(--nile-txt-secondary); }
 
-.ap-actions { display: flex; gap: var(--nile-s-4); }
+/* Folder tabs — one strip above the cards; the active tab merges into the card
+   below it by matching its background and masking the shared 1px border. */
+.ap-tabs {
+  display: flex; align-items: flex-end; gap: 2px; max-width: 880px;
+  margin: 0 auto -1px; padding: 0 var(--nile-s-4);
+  border-bottom: 1px solid var(--nile-border); position: relative; z-index: 1;
+  overflow-x: auto; scrollbar-width: none;
+}
+.ap-tabs::-webkit-scrollbar { display: none; }
+.ap-tabs--narrow { max-width: 520px; }
+.ap-tabs-gap { flex: 1 1 auto; min-width: var(--nile-s-4); }
+.ap-tab {
+  display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+  background: transparent; border: 1px solid transparent; border-bottom: none;
+  border-radius: var(--nile-r-md) var(--nile-r-md) 0 0;
+  padding: 10px 16px; margin-bottom: -1px;
+  font-family: inherit; font-size: 14px; font-weight: 600;
+  color: var(--nile-txt-tertiary); cursor: pointer;
+  transition: color .15s, background .15s;
+}
+.ap-tab:hover { color: var(--nile-txt-primary); background: var(--nile-bg-raised); }
+.ap-tab.is-active {
+  background: var(--nile-bg-surface); border-color: var(--nile-border);
+  color: var(--nile-txt-primary); box-shadow: 0 1px 0 0 var(--nile-bg-surface);
+}
+.ap-tab--quiet { font-weight: 500; }
+.ap-tab-count {
+  background: rgba(200, 255, 0, 0.14); color: var(--nile-volt);
+  border-radius: var(--nile-r-pill); padding: 1px 7px; font-size: 11px; font-weight: 700;
+}
+/* Cards under the strip square off their top corners so it reads as one surface. */
+.ap-tabs + .ap-card { border-top-left-radius: 0; border-top-right-radius: 0; }
 .ap-review { border: 1px solid var(--nile-border); border-radius: var(--nile-r-md);
   padding: var(--nile-s-5); margin-bottom: var(--nile-s-5); }
 .ap-report-head { display: flex; align-items: center; gap: var(--nile-s-3); margin-bottom: var(--nile-s-3); }
@@ -2356,7 +2377,10 @@ async function submitCampaign() {
   .ap-card { padding: var(--nile-s-5); }
   .ap-h { font-size: 21px; }
   .ap-top { flex-wrap: wrap; gap: var(--nile-s-3); }
-  .ap-actions { flex-wrap: wrap; }
+  /* Tabs stay one horizontally-scrollable row rather than wrapping. */
+  .ap-tabs { padding: 0 var(--nile-s-2); }
+  .ap-tab { padding: 9px 12px; font-size: 13px; }
+  .ap-tabs-gap { min-width: 0; }
   .ap-new { width: 100%; text-align: center; }
   .ap-grid { gap: 8px; }
   .ap-opt { padding: 13px 6px; font-size: 15px; }
