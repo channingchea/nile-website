@@ -8,7 +8,8 @@ import sitemap from "@astrojs/sitemap";
 export default defineConfig({
   site: "https://joinnile.com",
   output: "static",
-  integrations: [vue(), sitemap()],
+  // /auth/* are transient post-click landings (noindex) — keep them out of the sitemap.
+  integrations: [vue(), sitemap({ filter: (page) => !page.includes("/auth/") })],
   vite: {
     // Pin CSS minification to classic syntax for older iOS Safari. Without a
     // target, the minifier rewrites every `max-width`/`min-width` query to

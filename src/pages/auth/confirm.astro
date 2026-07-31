@@ -1,0 +1,81 @@
+---
+// Email-confirmation landing (/auth/confirm). Supabase sends users here after
+// clicking "confirm your email" whenever the app can't take them — i.e. desktop
+// browsers, and any client that didn't pass its own `emailRedirectTo`. It is
+// also the project's Site URL fallback.
+//
+// The account is already confirmed by the time Supabase redirects here (the
+// /auth/v1/verify endpoint flips email_confirmed_at before issuing the
+// redirect), so this page never talks to Supabase. It only reads the outcome
+// off the URL: a `code`/`token_hash` means success, an `error` means the link
+// expired or was already used. The PKCE code itself is deliberately ignored —
+// its verifier lives on the device that started signup, not here.
+// noindex: transient post-click page.
+import BaseLayout from "../../layouts/BaseLayout.astro";
+---
+
+<BaseLayout
+  title="Email confirmed · Nile"
+  description="Your Nile account email is confirmed."
+  canonical="/auth/confirm"
+>
+  <Fragment slot="head">
+    <meta name="robots" content="noindex" />
+  </Fragment>
+
+  <section class="nile-section">
+    <div class="nile-container confirm-wrap">
+      <div class="confirm-card">
+        <span class="confirm-icon" aria-hidden="true" data-icon>✅</span>
+        <h1 data-title>Email confirmed</h1>
+        <p data-body>
+          You're all set. Open the Nile app on your phone and sign in to finish
+          setting up your account.
+        </p>
+        <a class="confirm-cta" href="/">Back to Nile</a>
+        <p class="confirm-alt">
+          On your phone? <a href="nile://login-callback">Open the Nile app</a>
+        </p>
+      </div>
+    </div>
+  </section>
+</BaseLayout>
+
+<script is:inline>
+  // Supabase reports failures in the query string (PKCE) or the hash fragment
+  // (implicit), so check both. Anything else is treated as success.
+  (function () {
+    const q = new URLSearchParams(window.location.search);
+    const h = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+    const code = q.get("error_code") || h.get("error_code");
+    const err = q.get("error") || h.get("error") || code;
+    if (!err) return;
+
+    const expired = (code || "").includes("expired");
+    document.querySelector("[data-icon]").textContent = expired ? "⏳" : "⚠️";
+    document.querySelector("[data-title]").textContent = expired
+      ? "This link has expired"
+      : "We couldn't confirm this link";
+    document.querySelector("[data-body]").textContent = expired
+      ? "Confirmation links are only good for a short while. Open the Nile app and sign in — we'll send you a fresh one."
+      : "This link may have already been used. Try signing in on the Nile app; if it still doesn't work, sign up again or contact support.";
+  })();
+</script>
+
+<style>
+  .confirm-wrap { padding-top: var(--nile-s-20); padding-bottom: var(--nile-s-20); }
+  .confirm-card {
+    max-width: 440px; margin: 0 auto; text-align: center;
+    background: var(--nile-bg-surface); border: 1px solid var(--nile-border);
+    border-radius: var(--nile-r-xl); padding: var(--nile-s-10) var(--nile-s-6);
+  }
+  .confirm-icon { font-size: 48px; line-height: 1; display: block; margin-bottom: var(--nile-s-4); }
+  .confirm-card h1 { margin: 0 0 var(--nile-s-3); }
+  .confirm-card p { color: var(--nile-txt-secondary); margin: 0 0 var(--nile-s-6); line-height: 1.6; }
+  .confirm-cta {
+    display: inline-block; background: var(--nile-volt); color: var(--nile-on-volt);
+    border-radius: 999px; padding: 14px 28px; font-weight: 700; text-decoration: none;
+  }
+  .confirm-alt { font-size: 0.9rem; margin: var(--nile-s-4) 0 0; }
+  .confirm-alt a { color: var(--nile-txt-secondary); }
+</style>
