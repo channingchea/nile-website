@@ -206,13 +206,7 @@ const liveNow = [
           audiences.map((a) => (
             <a href={a.href} class="audience nile-card">
               <div class="audience-img">
-                <ImageSlot
-                  label={a.img}
-                  src={a.src}
-                  alt={a.alt}
-                  radius="md"
-                  ratio="16 / 9"
-                />
+                <ImageSlot label={a.img} src={a.src} alt={a.alt} radius="md" />
               </div>
               <div class="audience-body">
                 <h3>{a.name}</h3>
@@ -434,23 +428,38 @@ const liveNow = [
     border-color: var(--nile-border-strong);
     text-decoration: none;
   }
+  /* No aspect-ratio here on purpose: the slot stretches to the card's height so
+     the photo and the copy column always end flush. */
   .audience-img {
-    flex: 0 0 180px;
+    flex: 0 0 200px;
+    align-self: stretch;
+  }
+  /* The card clips to its own radius, so square the slot off — otherwise its
+     inner corners curve away from the copy column. Beats the inline radius. */
+  .audience-img :global(.img-slot) {
+    border-radius: 0 !important;
   }
   .audience-body {
     padding: var(--nile-s-6);
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--nile-s-2);
   }
   .audience-body h3 {
-    margin-bottom: var(--nile-s-2);
+    margin-bottom: 0;
   }
   .audience-body p {
     color: var(--nile-txt-secondary);
     font-size: 0.95rem;
   }
+  /* Pin the link to the bottom so it lines up across cards of unequal copy. */
   .audience-link {
     color: var(--nile-volt);
     font-weight: 600;
     font-size: 0.9rem;
+    margin-top: auto;
+    padding-top: var(--nile-s-2);
   }
 
   /* ⑤ Viewer experience */
@@ -588,8 +597,10 @@ const liveNow = [
     .audience {
       flex-direction: column;
     }
+    /* Stacked: the slot no longer has a card height to stretch into, so give it
+       an explicit band. */
     .audience-img {
-      flex-basis: auto;
+      flex: 0 0 200px;
     }
     .hero-cta {
       flex-direction: column;
