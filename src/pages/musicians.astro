@@ -7,9 +7,24 @@ const description =
   "Sell virtual tickets to your live shows. Stream multiple camera angles (fretboard, drum overhead, wide stage) from phones, and earn from the gig and the replay.";
 
 const proofShows = [
-  { label: "late-night set", meta: "3 angles · Sold out" },
-  { label: "acoustic show", meta: "Fretboard + wide" },
-  { label: "full band", meta: "Drum overhead + stage" },
+  {
+    label: "late-night set",
+    meta: "3 angles · Sold out",
+    src: "/img/musicians-show-latenight.jpg",
+    alt: "Guitarist performing on stage in a dark club",
+  },
+  {
+    label: "acoustic show",
+    meta: "Fretboard + wide",
+    src: "/img/musicians-show-acoustic.jpg",
+    alt: "Musician singing and playing acoustic guitar at an intimate venue",
+  },
+  {
+    label: "full band",
+    meta: "Drum overhead + stage",
+    src: "/img/musicians-show-fullband.jpg",
+    alt: "Full band performing on an outdoor concert stage",
+  },
 ];
 ---
 
@@ -38,6 +53,8 @@ const proofShows = [
       </div>
       <ImageSlot
         label="concert multi-angle stream"
+        src="/img/musicians-hero.jpg"
+        alt="Crowd watching a live concert with the stage lit up ahead of them"
         radius="lg"
         ratio="4 / 3"
         class="hero-visual"
@@ -92,9 +109,27 @@ const proofShows = [
         </div>
       </div>
       <div class="angle-row">
-        <ImageSlot label="fretboard cam" radius="md" ratio="3 / 4" />
-        <ImageSlot label="drum overhead" radius="md" ratio="3 / 4" />
-        <ImageSlot label="wide stage" radius="md" ratio="3 / 4" />
+        <ImageSlot
+          label="fretboard cam"
+          src="/img/musicians-angle-fretboard.jpg"
+          alt="Close-up of a guitar fretboard and strings"
+          radius="md"
+          ratio="3 / 4"
+        />
+        <ImageSlot
+          label="drum overhead"
+          src="/img/musicians-angle-drums.jpg"
+          alt="Drum kit on stage lit by coloured concert lighting"
+          radius="md"
+          ratio="3 / 4"
+        />
+        <ImageSlot
+          label="wide stage"
+          src="/img/musicians-angle-wide.jpg"
+          alt="Rock band playing a full stage under dramatic lighting"
+          radius="md"
+          ratio="3 / 4"
+        />
       </div>
     </div>
   </section>
@@ -145,6 +180,8 @@ const proofShows = [
       </div>
       <ImageSlot
         label="phone setup at venue"
+        src="/img/musicians-phone-setup.jpg"
+        alt="Videographer filming a music performance from the side of the stage"
         radius="lg"
         ratio="16 / 9"
         class="setup-visual"
@@ -179,7 +216,13 @@ const proofShows = [
             {
               proofShows.map((s) => (
                 <div class="earnings-card nile-card">
-                  <ImageSlot label={s.label} radius="sm" ratio="16 / 9" />
+                  <ImageSlot
+                    label={s.label}
+                    src={s.src}
+                    alt={s.alt}
+                    radius="sm"
+                    ratio="16 / 9"
+                  />
                   <span class="earnings-meta">{s.meta}</span>
                   <span class="earnings-figure">$ —</span>
                 </div>

@@ -31,9 +31,24 @@ const steps = [
 ];
 
 const proofShows = [
-  { label: "set", meta: "Late-night set · 3 angles" },
-  { label: "workshop", meta: "Sold-out workshop" },
-  { label: "service", meta: "Sunday service" },
+  {
+    label: "set",
+    meta: "Late-night set · 3 angles",
+    src: "/img/host-show-set.jpg",
+    alt: "Crowd at a live concert with bright stage lights",
+  },
+  {
+    label: "workshop",
+    meta: "Sold-out workshop",
+    src: "/img/host-show-workshop.jpg",
+    alt: "Instructor leading a hands-on workshop with attentive participants",
+  },
+  {
+    label: "service",
+    meta: "Sunday service",
+    src: "/img/host-show-service.jpg",
+    alt: "Church interior with a congregation attending a service",
+  },
 ];
 ---
 
@@ -63,6 +78,8 @@ const proofShows = [
       </div>
       <ImageSlot
         label="host streaming · multi-angle"
+        src="/img/host-hero.jpg"
+        alt="Videographer operating a camera at a live event"
         radius="lg"
         ratio="4 / 3"
         class="hero-visual"
@@ -118,9 +135,27 @@ const proofShows = [
         </p>
       </div>
       <div class="angle-row">
-        <ImageSlot label="angle 1" radius="md" ratio="3 / 4" />
-        <ImageSlot label="angle 2" radius="md" ratio="3 / 4" />
-        <ImageSlot label="angle 3" radius="md" ratio="3 / 4" />
+        <ImageSlot
+          label="angle 1"
+          src="/img/host-angle-1.jpg"
+          alt="Singer and guitarist performing at the front of the stage"
+          radius="md"
+          ratio="3 / 4"
+        />
+        <ImageSlot
+          label="angle 2"
+          src="/img/host-angle-2.jpg"
+          alt="Drummer playing during a live band performance"
+          radius="md"
+          ratio="3 / 4"
+        />
+        <ImageSlot
+          label="angle 3"
+          src="/img/host-angle-3.jpg"
+          alt="Audience with hands raised in front of the stage"
+          radius="md"
+          ratio="3 / 4"
+        />
       </div>
     </div>
   </section>
@@ -203,7 +238,13 @@ const proofShows = [
             {
               proofShows.map((s) => (
                 <div class="earnings-card nile-card">
-                  <ImageSlot label={s.label} radius="sm" ratio="16 / 9" />
+                  <ImageSlot
+                    label={s.label}
+                    src={s.src}
+                    alt={s.alt}
+                    radius="sm"
+                    ratio="16 / 9"
+                  />
                   <span class="earnings-meta">{s.meta}</span>
                   <span class="earnings-figure">$ —</span>
                 </div>

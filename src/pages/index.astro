@@ -11,17 +11,22 @@ const steps = [
   {
     n: 1,
     img: "phone-rig setup",
+    src: "/img/step-1-phone-rig.jpg",
+    alt: "Two smartphones mounted on stands recording a live performance",
     title: "Set up your show",
     body: "Create an event, set your ticket price, and invite your crew. Your phones are your cameras.",
   },
   {
     n: 2,
     img: "live multi-angle",
+    src: "/img/step-2-multi-angle.jpg",
+    alt: "Camera operators filming a live show from several positions at once",
     title: "Go live",
     body: "Broadcast multiple camera angles simultaneously. Your audience picks their own view and watches from wherever they are, in the app or on the web.",
   },
   {
     n: 3,
+    // Awaiting a real screenshot of the Nile earnings dashboard.
     img: "earnings dashboard",
     title: "Keep earning",
     body: "Live ticket buyers get the replay free. Everyone else can buy access after. One show, multiple revenue windows.",
@@ -32,6 +37,8 @@ const audiences = [
   {
     name: "Musicians",
     img: "artist on stage",
+    src: "/img/audience-musicians.jpg",
+    alt: "Guitarist singing into a microphone under stage lights",
     body: "It's your merch table, for the show itself. From intimate sets to sold-out venues, sell virtual tickets to fans who couldn't make it. Fretboard cam, drum overhead, wide stage. All from your existing setup.",
     href: "/musicians",
     link: "For Musicians →",
@@ -39,6 +46,8 @@ const audiences = [
   {
     name: "Churches & Worship",
     img: "worship service",
+    src: "/img/audience-worship.jpg",
+    alt: "Congregation worshipping together during a church service",
     body: "Digital giving for digital attendance. Reach members who moved away, can't travel, or worship from abroad. No production crew needed. No app required to watch.",
     href: "/worship",
     link: "For Churches & Worship →",
@@ -46,6 +55,8 @@ const audiences = [
   {
     name: "Creators & Streamers",
     img: "creator streaming",
+    src: "/img/audience-creators.jpg",
+    alt: "Creator recording herself playing guitar to camera",
     body: "The premium tier you couldn't offer on free platforms. Free platforms give you reach. Nile gives you revenue. Turn your audience into ticket buyers for your best content.",
     href: "/creators",
     link: "For Creators →",
@@ -53,6 +64,8 @@ const audiences = [
   {
     name: "Any Live Event",
     img: "comedy · sport · fitness",
+    src: "/img/audience-any-event.jpg",
+    alt: "Performer holding a microphone on stage at a comedy night",
     body: "Sports, conferences, comedy, fitness, gaming. If people pay to be there in person, they'll pay to be there online.",
     href: "/host",
     link: "For Hosts →",
@@ -74,10 +87,30 @@ const features = [
 
 // Placeholder live-now cards — swap for real event data at launch.
 const liveNow = [
-  { viewers: "1.2K", price: "$12" },
-  { viewers: "840", price: "$8" },
-  { viewers: "410", price: "$20" },
-  { viewers: "2.1K", price: "$15" },
+  {
+    viewers: "1.2K",
+    price: "$12",
+    src: "/img/live-1-band.jpg",
+    alt: "Band performing on a small indoor stage",
+  },
+  {
+    viewers: "840",
+    price: "$8",
+    src: "/img/live-2-comedy.jpg",
+    alt: "Stand-up comedian on stage holding a microphone",
+  },
+  {
+    viewers: "410",
+    price: "$20",
+    src: "/img/live-3-fitness.jpg",
+    alt: "Instructor leading a group fitness class in a studio",
+  },
+  {
+    viewers: "2.1K",
+    price: "$15",
+    src: "/img/live-4-sports.jpg",
+    alt: "Packed arena during a live basketball game",
+  },
 ];
 ---
 
@@ -108,11 +141,26 @@ const liveNow = [
 
       <div class="hero-collage">
         <div class="collage-main">
-          <ImageSlot label="main stage · wide" radius="lg" />
+          <ImageSlot
+            label="main stage · wide"
+            src="/img/home-hero-main-stage.jpg"
+            alt="Band performing on a lit stage at a night concert"
+            radius="lg"
+          />
           <span class="nile-badge-live collage-badge">● Live</span>
         </div>
-        <ImageSlot label="fretboard cam" radius="lg" />
-        <ImageSlot label="crowd" radius="lg" />
+        <ImageSlot
+          label="fretboard cam"
+          src="/img/home-hero-fretboard.jpg"
+          alt="Close-up of hands playing an acoustic guitar during a live set"
+          radius="lg"
+        />
+        <ImageSlot
+          label="crowd"
+          src="/img/home-hero-crowd.jpg"
+          alt="Concert audience with hands raised under stage lights"
+          radius="lg"
+        />
       </div>
     </div>
   </section>
@@ -130,7 +178,13 @@ const liveNow = [
           steps.map((s) => (
             <div class="step nile-card">
               <div class="step-img">
-                <ImageSlot label={s.img} radius="md" ratio="16 / 9" />
+                <ImageSlot
+                  label={s.img}
+                  src={s.src}
+                  alt={s.alt}
+                  radius="md"
+                  ratio="16 / 9"
+                />
                 <span class="step-num">{s.n}</span>
               </div>
               <h3>{s.title}</h3>
@@ -152,7 +206,13 @@ const liveNow = [
           audiences.map((a) => (
             <a href={a.href} class="audience nile-card">
               <div class="audience-img">
-                <ImageSlot label={a.img} radius="md" ratio="16 / 9" />
+                <ImageSlot
+                  label={a.img}
+                  src={a.src}
+                  alt={a.alt}
+                  radius="md"
+                  ratio="16 / 9"
+                />
               </div>
               <div class="audience-body">
                 <h3>{a.name}</h3>
@@ -214,7 +274,13 @@ const liveNow = [
         liveNow.map((e) => (
           <div class="live-card nile-card">
             <div class="live-thumb">
-              <ImageSlot label="live show" radius="md" ratio="16 / 9" />
+              <ImageSlot
+                label="live show"
+                src={e.src}
+                alt={e.alt}
+                radius="md"
+                ratio="16 / 9"
+              />
               <span class="nile-badge-live live-badge">● Live</span>
               <span class="live-count">◦ {e.viewers}</span>
             </div>
@@ -226,7 +292,13 @@ const liveNow = [
         ))
       }
       <div class="live-card live-card--peek nile-card" aria-hidden="true">
-        <ImageSlot label="" radius="md" ratio="16 / 9" />
+        <ImageSlot
+          label=""
+          src="/img/live-5-peek.jpg"
+          alt=""
+          radius="md"
+          ratio="16 / 9"
+        />
       </div>
     </div>
   </section>
