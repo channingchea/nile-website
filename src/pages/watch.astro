@@ -6,15 +6,28 @@ const title = "Watch Live Events with Multiple Camera Angles | Nile";
 const description =
   "Watch live shows your way: pick your camera angle, chat live, and catch on-demand replays. No app download required. Available on iOS, Android, and web.";
 
+// Matches the onboarding interest picker (topics table, sort_order asc).
 const topics = [
-  "Music",
-  "Worship",
-  "Gaming",
-  "Sports",
-  "Fitness",
+  "Hip-Hop",
+  "R&B",
+  "House / EDM",
+  "DJ Sets",
+  "Live Bands",
+  "Jazz",
+  "Afrobeats",
+  "Latin",
   "Comedy",
-  "Podcasts",
+  "Talk / Podcast",
+  "Gaming",
+  "Sports Watch",
+  "Tech Talks",
+  "Cooking",
+  "Fitness",
+  "Fashion",
   "Art",
+  "Faith",
+  "Q&A / AMA",
+  "Open Mic",
 ];
 ---
 
@@ -24,7 +37,7 @@ const topics = [
     <div class="nile-container hero-grid">
       <div class="hero-copy">
         <p class="nile-eyebrow">For Fans</p>
-        <h1>Watch like you're in the room.</h1>
+        <h1 class="hero-h1">Watch like you're in the room.</h1>
         <p class="nile-lead">
           Nile is live events with multiple camera angles, live chat, and
           on-demand replay. You're not just watching. You're choosing what to
@@ -57,9 +70,9 @@ const topics = [
       <div class="split-head">
         <p class="nile-eyebrow">The experience</p>
         <h2>Your view. Your choice.</h2>
-        <p class="seo-h2">Watch live events with multiple camera angles</p>
       </div>
       <div class="split-body">
+        <p class="seo-h2">Watch live events with multiple camera angles</p>
         <p>
           Every Nile event streams multiple camera angles at once. You pick the
           one you want and switch whenever you feel like it. Close up on the
@@ -126,6 +139,7 @@ const topics = [
       <div class="platform-chips">
         <span class="platform-chip">iOS App</span>
         <span class="platform-chip">Android App</span>
+        <span class="platform-chip">macOS App</span>
         <span class="platform-chip">Web Browser</span>
       </div>
     </div>
@@ -175,6 +189,9 @@ const topics = [
   /* Hero */
   .hero {
     padding-block: var(--nile-s-16) var(--nile-s-12);
+  }
+  .hero-h1 {
+    font-size: clamp(2.25rem, 4.5vw, 3.5rem);
   }
   .hero-grid {
     display: grid;
