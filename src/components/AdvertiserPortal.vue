@@ -60,6 +60,13 @@ type Row = {
   campaign_id: string; name: string; headline: string | null; status: string;
   budget_cents: number; spent_cents: number; impressions: number; clicks: number;
   review_note: string | null; created_at: string;
+  placement: string | null; event_title: string | null; event_scheduled_at: string | null;
+};
+// Sponsorable event (0079 get_sponsorable_events) for the "Sponsor an event" picker.
+type SponsEvent = {
+  event_id: string; title: string; cover_image_url: string | null;
+  scheduled_at: string; host_username: string | null; host_name: string | null;
+  host_avatar_url: string | null; is_ticketed: boolean; price_cents: number;
 };
 type DailyPoint = { day: string; impressions: number; clicks: number };
 
@@ -114,6 +121,38 @@ const budgetCents = ref(2500);
 const durationDays = ref(7);
 const editingId = ref<string | null>(null); // pending_review campaign being edited
 const existingImageUrl = ref(""); // current creative image when editing
+
+// Product being built (0079): a feed image ad, a Currents video ad, or an
+// event sponsorship (Pre-Show lobby). Sponsorships pick their own creative
+// format (image or video) via adKind; feed/currents imply it.
+const product = ref<"feed" | "currents" | "sponsor">("feed");
+function setProduct(p: "feed" | "currents" | "sponsor") {
+  product.value = p;
+  if (p === "feed") adKind.value = "image";
+  else if (p === "currents") adKind.value = "video";
+  else if (!sponsEvents.value.length) loadSponsEvents();
+}
+
+// Event sponsorship picker state (get_sponsorable_events).
+const sponsEvents = ref<SponsEvent[]>([]);
+const sponsSearch = ref("");
+const sponsLoading = ref(false);
+const selectedEvent = ref<SponsEvent | null>(null);
+let sponsSearchTimer: ReturnType<typeof setTimeout> | undefined;
+async function loadSponsEvents() {
+  sponsLoading.value = true;
+  const { data, error } = await sb.rpc("get_sponsorable_events", {
+    search: sponsSearch.value.trim() || null,
+    page_limit: 20,
+  });
+  if (error) msg.value = error.message;
+  sponsEvents.value = (data as SponsEvent[]) ?? [];
+  sponsLoading.value = false;
+}
+function onSponsSearch() {
+  clearTimeout(sponsSearchTimer);
+  sponsSearchTimer = setTimeout(loadSponsEvents, 300);
+}
 
 // Currents video ads (0068): a campaign whose creative is a ≤60s vertical video
 // served between Currents in the app. Same checkout/review; separate bucket.
@@ -540,6 +579,7 @@ function statusClass(s: string) {
 type AdminRow = {
   id: string; name: string; status: string; budget_cents: number;
   starts_at: string; ends_at: string; created_at: string;
+  placement: string | null;
   ad_creatives: {
     image_url: string | null; headline: string; body: string | null;
     click_url: string; kind: "image" | "video" | null;
@@ -547,6 +587,7 @@ type AdminRow = {
   }[];
   ad_targeting: { topic_ids: string[] | null }[];
   advertiser_accounts: { name: string; contact_email: string } | null;
+  events: { title: string; scheduled_at: string | null } | null;
 };
 
 // Public playback URL for a video creative (ad-videos bucket, 0068).
@@ -561,7 +602,7 @@ const topicNames = ref<Record<string, string>>({});
 const actingOn = ref("");
 
 const ADMIN_SELECT =
-  "id, name, status, budget_cents, starts_at, ends_at, created_at, ad_creatives(image_url, headline, body, click_url, kind, video_path, duration_ms), ad_targeting(topic_ids), advertiser_accounts(name, contact_email)";
+  "id, name, status, budget_cents, starts_at, ends_at, created_at, placement, ad_creatives(image_url, headline, body, click_url, kind, video_path, duration_ms), ad_targeting(topic_ids), advertiser_accounts(name, contact_email), events(title, scheduled_at)";
 function fetchAdmin(cursor: string | null, limit: number) {
   let q = sb.from("ad_campaigns").select(ADMIN_SELECT)
     .in("status", ["pending_review", "active", "paused"])
@@ -645,7 +686,21 @@ async function reloadAdmin() {
   adminHasMore.value = page.length === limit;
 }
 
-const pendingRows = computed(() => queue.value.filter((r) => r.status === "pending_review"));
+// Sponsorships (lobby placement) sort first, soonest event first — their
+// review window closes when the event starts, so they're the time-sensitive
+// ones. Everything else keeps the created_at order from the fetch.
+const pendingRows = computed(() =>
+  queue.value
+    .filter((r) => r.status === "pending_review")
+    .sort((a, b) => {
+      const aLobby = a.placement === "lobby", bLobby = b.placement === "lobby";
+      if (aLobby !== bLobby) return aLobby ? -1 : 1;
+      if (aLobby && bLobby) {
+        return new Date(a.events?.scheduled_at ?? 0).getTime() -
+               new Date(b.events?.scheduled_at ?? 0).getTime();
+      }
+      return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+    }));
 const liveRows = computed(() => queue.value.filter((r) => r.status !== "pending_review"));
 
 function topicsFor(r: AdminRow) {
@@ -1181,6 +1236,9 @@ function resetBuilder() {
   durationDays.value = 7;
   cropSrc.value = "";
   adKind.value = "image";
+  product.value = "feed";
+  selectedEvent.value = null;
+  sponsSearch.value = "";
   videoFile.value = null;
   if (videoPreviewUrl.value) URL.revokeObjectURL(videoPreviewUrl.value);
   videoPreviewUrl.value = "";
@@ -1219,6 +1277,7 @@ async function openEdit(r: Row) {
   clickUrl.value = cr.click_url ?? "";
   existingImageUrl.value = cr.image_url ?? "";
   adKind.value = cr.kind === "video" ? "video" : "image";
+  product.value = r.placement === "lobby" ? "sponsor" : (cr.kind === "video" ? "currents" : "feed");
   existingVideoUrl.value = cr.video_path
     ? sb.storage.from("ad-videos").getPublicUrl(cr.video_path).data.publicUrl
     : "";
@@ -1332,6 +1391,8 @@ async function uploadAdVideo(): Promise<{ videoUrl: string; thumbUrl: string | n
 async function submitCampaign() {
   msg.value = "";
   const isVideo = adKind.value === "video";
+  const isSponsor = product.value === "sponsor";
+  if (isSponsor && !editingId.value && !selectedEvent.value) { msg.value = "Pick an event to sponsor."; return; }
   if (!isVideo && cropSrc.value) { msg.value = "Finish cropping the image first."; return; }
   if (!isVideo && !file.value && !editingId.value) { msg.value = "Add a creative image."; return; }
   if (isVideo && !videoFile.value && !editingId.value) { msg.value = "Add a creative video."; return; }
@@ -1358,9 +1419,11 @@ async function submitCampaign() {
         .update(update)
         .eq("campaign_id", editingId.value);
       if (crErr) throw crErr;
-      const { error: tgErr } = await sb.from("ad_targeting")
-        .upsert({ campaign_id: editingId.value, topic_ids: [...selectedTopics.value] });
-      if (tgErr) throw tgErr;
+      if (!isSponsor) { // sponsorships target one event, not topics
+        const { error: tgErr } = await sb.from("ad_targeting")
+          .upsert({ campaign_id: editingId.value, topic_ids: [...selectedTopics.value] });
+        if (tgErr) throw tgErr;
+      }
       busy.value = false;
       await openDashboard();
       return;
@@ -1368,15 +1431,26 @@ async function submitCampaign() {
 
     // CREATE:
     // 1) Upload the creative asset (image → ad-creatives, video → ad-videos).
-    const payload: Record<string, unknown> = {
-      advertiser_account_id: account.value!.id,
-      headline: headline.value.trim(),
-      body: body.value.trim(),
-      click_url: clickUrl.value.trim(),
-      topic_ids: [...selectedTopics.value],
-      budget_cents: budgetCents.value,
-      duration_days: durationDays.value,
-    };
+    // Sponsorship (0079): placement "lobby" + the chosen event; price is
+    // server-derived from app_config, so no budget/duration/topics are sent.
+    const payload: Record<string, unknown> = isSponsor
+      ? {
+          advertiser_account_id: account.value!.id,
+          placement: "lobby",
+          event_id: selectedEvent.value!.event_id,
+          headline: headline.value.trim(),
+          body: body.value.trim(),
+          click_url: clickUrl.value.trim(),
+        }
+      : {
+          advertiser_account_id: account.value!.id,
+          headline: headline.value.trim(),
+          body: body.value.trim(),
+          click_url: clickUrl.value.trim(),
+          topic_ids: [...selectedTopics.value],
+          budget_cents: budgetCents.value,
+          duration_days: durationDays.value,
+        };
     if (isVideo) {
       const { videoUrl, thumbUrl } = await uploadAdVideo();
       payload.creative_kind = "video";
@@ -1551,6 +1625,9 @@ const activeTab = computed(() => (view.value === "build" ? "dash" : view.value))
                 @click="filterDaily(r.campaign_id)"
               >
                 {{ r.headline || r.name }}
+                <div v-if="r.placement === 'lobby'" class="ap-note-inline">
+                  Sponsorship · {{ r.event_title || 'Event removed' }}{{ r.event_scheduled_at ? ' · ' + fmtDateTime(r.event_scheduled_at) : '' }}
+                </div>
                 <div v-if="r.status === 'rejected' && r.review_note" class="ap-note-inline">
                   Reviewer: {{ r.review_note }}
                 </div>
@@ -1585,13 +1662,55 @@ const activeTab = computed(() => (view.value === "build" ? "dash" : view.value))
       </div>
 
       <template v-if="!editingId">
-        <label class="ap-label">Ad format</label>
+        <label class="ap-label">What are you buying?</label>
+        <div class="ap-grid">
+          <button type="button" class="ap-opt" :aria-selected="product === 'feed'" @click="setProduct('feed')">
+            Feed ad · image card
+          </button>
+          <button type="button" class="ap-opt" :aria-selected="product === 'currents'" @click="setProduct('currents')">
+            Currents ad · video (≤60s)
+          </button>
+          <button type="button" class="ap-opt" :aria-selected="product === 'sponsor'" @click="setProduct('sponsor')">
+            Sponsor an event · Pre-Show
+          </button>
+        </div>
+      </template>
+
+      <!-- SPONSORSHIP: event picker + creative format (0079) -->
+      <template v-if="product === 'sponsor' && !editingId">
+        <label class="ap-label">Event to sponsor</label>
+        <input
+          class="ap-input" v-model="sponsSearch" type="search"
+          placeholder="Search events or hosts…" @input="onSponsSearch"
+        />
+        <p v-if="sponsLoading" class="ap-center">Loading events…</p>
+        <p v-else-if="sponsEvents.length === 0" class="ap-note" style="text-align:left">
+          No sponsorable events right now. Events appear here when a host opens
+          them to sponsorship, at least 24 hours before showtime.
+        </p>
+        <div v-else class="ap-spons-list">
+          <button
+            v-for="ev in sponsEvents" :key="ev.event_id" type="button" class="ap-spons-row"
+            :aria-selected="selectedEvent?.event_id === ev.event_id"
+            @click="selectedEvent = selectedEvent?.event_id === ev.event_id ? null : ev"
+          >
+            <img v-if="ev.cover_image_url" :src="ev.cover_image_url" class="ap-spons-cover" alt="" />
+            <div v-else class="ap-spons-cover ap-spons-cover--empty"></div>
+            <span class="ap-spons-info">
+              <b>{{ ev.title }}</b>
+              <small>{{ ev.host_name || ev.host_username }} · {{ fmtDateTime(ev.scheduled_at) }}</small>
+              <small>{{ ev.is_ticketed ? 'Ticketed event' : 'Free event' }} · {{ money(ev.price_cents) }}</small>
+            </span>
+          </button>
+        </div>
+
+        <label class="ap-label">Creative format</label>
         <div class="ap-grid">
           <button type="button" class="ap-opt" :aria-selected="adKind === 'image'" @click="adKind = 'image'">
-            Image · in-feed card
+            Image (4:3)
           </button>
           <button type="button" class="ap-opt" :aria-selected="adKind === 'video'" @click="adKind = 'video'">
-            Video · Currents (≤60s)
+            Video (≤60s)
           </button>
         </div>
       </template>
@@ -1631,7 +1750,10 @@ const activeTab = computed(() => (view.value === "build" ? "dash" : view.value))
           class="ap-preview" controls muted playsinline
         ></video>
         <p v-if="videoDurationMs" class="ap-note" style="text-align:left">
-          {{ (videoDurationMs / 1000).toFixed(1) }}s — plays with sound between Currents; viewers can swipe past anytime.
+          {{ (videoDurationMs / 1000).toFixed(1) }}s —
+          {{ product === 'sponsor'
+            ? 'loops muted in the Pre-Show lobby; viewers can tap to unmute.'
+            : 'plays with sound between Currents; viewers can swipe past anytime.' }}
         </p>
       </template>
 
@@ -1644,16 +1766,20 @@ const activeTab = computed(() => (view.value === "build" ? "dash" : view.value))
       <label class="ap-label">Click-through URL (https)</label>
       <input class="ap-input" v-model="clickUrl" type="url" placeholder="https://acme.com/offer" required />
 
-      <label class="ap-label">Target topics (optional: none = show to everyone)</label>
-      <div v-if="topics.length" class="ap-chips">
-        <button
-          v-for="t in topics" :key="t.id" type="button" class="ap-chip"
-          :aria-selected="selectedTopics.has(t.id)" @click="toggleTopic(t.id)"
-        >{{ t.name }}</button>
-      </div>
-      <p v-else class="ap-note" style="text-align:left">No topics available. Your ad will show to everyone.</p>
+      <!-- Topics/budget/duration are ad-only: a sponsorship targets one event
+           at a fixed, server-priced rate. -->
+      <template v-if="product !== 'sponsor'">
+        <label class="ap-label">Target topics (optional: none = show to everyone)</label>
+        <div v-if="topics.length" class="ap-chips">
+          <button
+            v-for="t in topics" :key="t.id" type="button" class="ap-chip"
+            :aria-selected="selectedTopics.has(t.id)" @click="toggleTopic(t.id)"
+          >{{ t.name }}</button>
+        </div>
+        <p v-else class="ap-note" style="text-align:left">No topics available. Your ad will show to everyone.</p>
+      </template>
 
-      <template v-if="!editingId">
+      <template v-if="!editingId && product !== 'sponsor'">
         <label class="ap-label">Budget</label>
         <div class="ap-grid">
           <button v-for="b in BUDGETS" :key="b.cents" type="button" class="ap-opt"
@@ -1668,11 +1794,19 @@ const activeTab = computed(() => (view.value === "build" ? "dash" : view.value))
       </template>
 
       <button class="nile-btn nile-btn--primary ap-full" type="submit" :disabled="busy">
-        {{ busy ? (editingId ? 'Saving…' : 'Setting up…') : (editingId ? 'Save changes' : 'Continue to payment') }}
+        {{ busy ? (editingId ? 'Saving…' : 'Setting up…')
+           : editingId ? 'Save changes'
+           : (product === 'sponsor' && selectedEvent) ? `Continue to payment — ${money(selectedEvent.price_cents)}`
+           : 'Continue to payment' }}
       </button>
       <p class="ap-note" v-if="editingId">
         Your ad stays in review after saving. Budget and duration can't change
         because your card is already authorized.
+      </p>
+      <p class="ap-note" v-else-if="product === 'sponsor'">
+        You'll pay securely via Stripe. Your card is only authorized now — it's
+        charged when your sponsorship is approved, and you're automatically
+        refunded if the event is cancelled or never happens.
       </p>
       <p class="ap-note" v-else>
         You'll pay securely via Stripe. Your card is only authorized now. It's
@@ -1702,11 +1836,17 @@ const activeTab = computed(() => (view.value === "build" ? "dash" : view.value))
         <h3 class="ap-rh ap-clickable" @click="openDetail(r)">{{ r.ad_creatives?.[0]?.headline ?? r.name }}</h3>
         <p class="ap-rb">{{ r.ad_creatives?.[0]?.body }}</p>
         <p class="ap-rmeta">
-          <span v-if="r.ad_creatives?.[0]?.kind === 'video'">Currents video ad{{ r.ad_creatives[0].duration_ms ? ` · ${Math.round(r.ad_creatives[0].duration_ms! / 1000)}s` : '' }}</span>
-          <span v-if="r.ad_creatives?.[0]?.kind === 'video'"> · </span>
+          <!-- Sponsorships are time-sensitive: the review window closes at showtime. -->
+          <span v-if="r.placement === 'lobby'" class="ap-badge warn">
+            Sponsorship · {{ r.events?.title }}{{ r.events?.scheduled_at ? ' · ' + fmtDateTime(r.events.scheduled_at) : '' }}
+          </span>
+          <span v-if="r.placement === 'lobby'"> · </span>
+          <span v-if="r.placement !== 'lobby' && r.ad_creatives?.[0]?.kind === 'video'">Currents video ad{{ r.ad_creatives[0].duration_ms ? ` · ${Math.round(r.ad_creatives[0].duration_ms! / 1000)}s` : '' }}</span>
+          <span v-if="r.placement !== 'lobby' && r.ad_creatives?.[0]?.kind === 'video'"> · </span>
           <span>{{ r.advertiser_accounts?.name }} ({{ r.advertiser_accounts?.contact_email }})</span> ·
           <span>{{ money(r.budget_cents) }}</span> ·
-          <span>Topics: {{ topicsFor(r) }}</span> ·
+          <span v-if="r.placement !== 'lobby'">Topics: {{ topicsFor(r) }}</span>
+          <span v-if="r.placement !== 'lobby'"> · </span>
           <a v-if="r.ad_creatives?.[0]" :href="r.ad_creatives[0].click_url" target="_blank" rel="noopener noreferrer">{{ r.ad_creatives[0].click_url }}</a>
         </p>
         <div class="ap-rbtns">
@@ -2112,9 +2252,10 @@ const activeTab = computed(() => (view.value === "build" ? "dash" : view.value))
         <dl class="ap-dl">
           <div><dt>Advertiser</dt><dd>{{ detail.advertiser_accounts?.name ?? 'Host boost' }}<template v-if="detail.advertiser_accounts"> ({{ detail.advertiser_accounts.contact_email }})</template></dd></div>
           <div><dt>Status</dt><dd><span class="ap-badge" :class="statusClass(detail.status)">{{ statusLabel(detail.status) }}</span></dd></div>
-          <div><dt>Budget</dt><dd>{{ money(detail.budget_cents) }}</dd></div>
-          <div><dt>Flight</dt><dd>{{ fmtDate(detail.starts_at) }} – {{ fmtDate(detail.ends_at) }}</dd></div>
-          <div><dt>Topics</dt><dd>{{ topicsFor(detail) }}</dd></div>
+          <div><dt>{{ detail.placement === 'lobby' ? 'Price' : 'Budget' }}</dt><dd>{{ money(detail.budget_cents) }}</dd></div>
+          <div v-if="detail.placement === 'lobby'"><dt>Event</dt><dd>{{ detail.events?.title }}{{ detail.events?.scheduled_at ? ' · ' + fmtDateTime(detail.events.scheduled_at) : '' }}</dd></div>
+          <div v-else><dt>Flight</dt><dd>{{ fmtDate(detail.starts_at) }} – {{ fmtDate(detail.ends_at) }}</dd></div>
+          <div v-if="detail.placement !== 'lobby'"><dt>Topics</dt><dd>{{ topicsFor(detail) }}</dd></div>
           <div v-if="detail.ad_creatives?.[0]"><dt>Click URL</dt><dd><a :href="detail.ad_creatives[0].click_url" target="_blank" rel="noopener noreferrer">{{ detail.ad_creatives[0].click_url }}</a></dd></div>
           <div><dt>Submitted</dt><dd>{{ fmtDate(detail.created_at) }}</dd></div>
         </dl>
@@ -2190,6 +2331,27 @@ const activeTab = computed(() => (view.value === "build" ? "dash" : view.value))
   transition: border-color .15s, background .15s;
 }
 .ap-opt[aria-selected='true'] { border-color: var(--nile-volt); background: rgba(200, 255, 0, 0.08); }
+
+/* Sponsorship event picker (0079) */
+.ap-spons-list {
+  display: flex; flex-direction: column; gap: 8px; margin-bottom: var(--nile-s-6);
+  max-height: 340px; overflow-y: auto;
+}
+.ap-spons-row {
+  display: flex; align-items: center; gap: 12px; text-align: left; width: 100%;
+  background: var(--nile-bg-raised); border: 1px solid var(--nile-border);
+  border-radius: var(--nile-r-md); padding: 10px; cursor: pointer;
+  color: var(--nile-txt-primary); font-family: inherit;
+  transition: border-color .15s, background .15s;
+}
+.ap-spons-row[aria-selected='true'] { border-color: var(--nile-volt); background: rgba(200, 255, 0, 0.08); }
+.ap-spons-cover {
+  width: 72px; aspect-ratio: 4 / 3; object-fit: cover; flex: none;
+  border-radius: var(--nile-r-sm, 8px); background: var(--nile-bg-surface);
+}
+.ap-spons-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ap-spons-info b { font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ap-spons-info small { color: var(--nile-txt-secondary); font-size: 13px; }
 
 .ap-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: var(--nile-s-6); }
 .ap-chip {
