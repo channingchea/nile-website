@@ -58,7 +58,7 @@ const proofShows = [
     <div class="nile-container hero-grid">
       <div class="hero-copy">
         <p class="nile-eyebrow">For Hosts</p>
-        <h1>Your show. Your revenue. Your crew.</h1>
+        <h1 class="hero-h1">Your show. Your revenue. Your crew.</h1>
         <p class="nile-lead">
           Nile turns any live event into a ticketed streaming experience. If you
           have a phone, you have a camera. If you have an audience, you have a
@@ -73,7 +73,6 @@ const proofShows = [
           >
             Start Hosting →
           </button>
-          <span class="cta-note">opens waitlist</span>
         </div>
       </div>
       <ImageSlot
@@ -107,7 +106,7 @@ const proofShows = [
           before, during, and after the event.
         </p>
         <div class="revenue-card nile-card">
-          <span class="revenue-figure">~50%</span>
+          <span class="revenue-figure">50%</span>
           <p>
             After platform costs, you keep roughly 50% of net revenue. No
             guesswork, no rev share buried in the fine print.
@@ -313,6 +312,9 @@ const proofShows = [
   .hero {
     padding-block: var(--nile-s-16) var(--nile-s-12);
   }
+  .hero-h1 {
+    font-size: clamp(2.25rem, 4.5vw, 3.5rem);
+  }
   .hero-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -324,10 +326,6 @@ const proofShows = [
     gap: var(--nile-s-3);
     align-items: center;
     margin-top: var(--nile-s-8);
-  }
-  .cta-note {
-    color: var(--nile-txt-tertiary);
-    font-size: 0.8rem;
   }
 
   /* ③ Revenue */
@@ -565,9 +563,6 @@ const proofShows = [
     }
     .hero-cta .nile-btn {
       justify-content: center;
-    }
-    .cta-note {
-      text-align: center;
     }
   }
 

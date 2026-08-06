@@ -34,7 +34,7 @@ const proofShows = [
     <div class="nile-container hero-grid">
       <div class="hero-copy">
         <p class="nile-eyebrow">For Musicians</p>
-        <h1>200 seats in the room. Unlimited online.</h1>
+        <h1 class="hero-h1">200 seats in the room. Unlimited online.</h1>
         <p class="nile-lead">
           Nile lets you sell virtual tickets to the same show you're already
           playing. Your venue fills. Your reach doesn't stop at the door.
@@ -48,7 +48,6 @@ const proofShows = [
           >
             Start Streaming Your Shows →
           </button>
-          <span class="cta-note">opens waitlist</span>
         </div>
       </div>
       <ImageSlot
@@ -68,9 +67,9 @@ const proofShows = [
       <div class="split-head">
         <p class="nile-eyebrow">The ceiling</p>
         <h2>Your venue has a capacity. Your audience doesn't.</h2>
-        <p class="seo-h2">How to live stream your concert and sell tickets</p>
       </div>
       <div class="split-body">
+        <p class="seo-h2">How to live stream your concert and sell tickets</p>
         <p>
           Every sold-out show has fans who couldn't get a ticket, couldn't make
           the drive, or found out too late. With Nile, they can still be there.
@@ -276,6 +275,9 @@ const proofShows = [
   .hero {
     padding-block: var(--nile-s-16) var(--nile-s-12);
   }
+  .hero-h1 {
+    font-size: clamp(2.25rem, 4.5vw, 3.5rem);
+  }
   .hero-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -287,10 +289,6 @@ const proofShows = [
     gap: var(--nile-s-3);
     align-items: center;
     margin-top: var(--nile-s-8);
-  }
-  .cta-note {
-    color: var(--nile-txt-tertiary);
-    font-size: 0.8rem;
   }
 
   /* Ceiling */
@@ -488,9 +486,6 @@ const proofShows = [
     }
     .hero-cta .nile-btn {
       justify-content: center;
-    }
-    .cta-note {
-      text-align: center;
     }
   }
 

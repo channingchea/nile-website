@@ -31,7 +31,9 @@ const useCases = [
     <div class="nile-container hero-grid">
       <div class="hero-copy">
         <p class="nile-eyebrow">For Creators</p>
-        <h1>Free platforms built your audience. Nile helps you charge for it.</h1>
+        <h1 class="hero-h1">
+          Free platforms built your audience. Nile helps you charge for it.
+        </h1>
         <p class="nile-lead">
           Nile is your ticketed premium experience. Keep streaming where you
           already stream. Add Nile for the content your audience will actually
@@ -46,7 +48,6 @@ const useCases = [
           >
             Start Your First Paid Stream →
           </button>
-          <span class="cta-note">opens waitlist</span>
         </div>
       </div>
       <ImageSlot
@@ -263,6 +264,9 @@ const useCases = [
   .hero {
     padding-block: var(--nile-s-16) var(--nile-s-12);
   }
+  .hero-h1 {
+    font-size: clamp(2rem, 4vw, 3.25rem);
+  }
   .hero-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -274,10 +278,6 @@ const useCases = [
     gap: var(--nile-s-3);
     align-items: center;
     margin-top: var(--nile-s-8);
-  }
-  .cta-note {
-    color: var(--nile-txt-tertiary);
-    font-size: 0.8rem;
   }
 
   /* Split */
@@ -478,9 +478,6 @@ const useCases = [
     }
     .hero-cta .nile-btn {
       justify-content: center;
-    }
-    .cta-note {
-      text-align: center;
     }
     .tier-row {
       flex-direction: column;
