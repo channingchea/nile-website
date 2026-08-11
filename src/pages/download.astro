@@ -1,0 +1,354 @@
+---
+// Public download page for the Mac app (macOS Phase 9).
+//
+// Deliberately NOT in NAV and NOT in the sitemap yet — the plan puts internal
+// testers before a public link. Publishing it is three edits: add it to NAV in
+// site.config.ts, drop the noindex Fragment below, and drop the /download
+// exclusion from the sitemap filter in astro.config.mjs.
+//
+// The DMG lives in R2 behind downloads.joinnile.com. build_macos.sh --upload
+// writes BOTH mac/Nile-<version>.dmg and mac/Nile.dmg, so the always-latest
+// alias below never needs bumping — only VERSION does, and only for display.
+import BaseLayout from "../layouts/BaseLayout.astro";
+
+const VERSION = "1.0.0";
+const DMG_URL = "https://downloads.joinnile.com/mac/Nile.dmg";
+const SIZE = "42 MB";
+
+const title = "Download Nile for Mac | Nile";
+const description =
+  "Run your show from a desk. The Nile Mac app puts every camera, your crew, and live chat on one screen. Free download for macOS 12 Monterey and later, Apple silicon or Intel.";
+
+const softwareSchema = JSON.stringify({
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  name: "Nile for Mac",
+  applicationCategory: "MultimediaApplication",
+  operatingSystem: "macOS 12.0 or later",
+  softwareVersion: VERSION,
+  downloadUrl: DMG_URL,
+  offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+  publisher: { "@type": "Organization", name: "Nile" },
+});
+---
+
+<BaseLayout
+  title={title}
+  description={description}
+  canonical="/download"
+  jsonLd={softwareSchema}
+>
+  <Fragment slot="head">
+    <meta name="robots" content="noindex" />
+  </Fragment>
+
+  <!-- HERO -->
+  <section class="hero nile-section">
+    <div class="nile-container hero-inner">
+      <p class="nile-eyebrow">Mac app</p>
+      <h1>Run your show from a desk.</h1>
+      <p class="nile-lead">
+        Your phone is a camera. Your Mac is the control room. The Nile app for
+        macOS puts every angle, your whole crew, and live chat on one screen,
+        so you can watch the show instead of watching a phone.
+      </p>
+      <a class="nile-btn nile-btn--primary download-btn" href={DMG_URL}>
+        Download for Mac
+      </a>
+      <p class="meta">
+        Version {VERSION} · {SIZE} · Free · Apple silicon and Intel
+      </p>
+    </div>
+  </section>
+
+  <!-- WHAT THE MAC APP ADDS -->
+  <section class="band nile-section">
+    <div class="nile-container">
+      <div class="section-head">
+        <p class="nile-eyebrow">Why a Mac app</p>
+        <h2>The Studio.</h2>
+        <p class="section-sub">
+          Everything you can do on your phone, you can do here. These are the
+          things you can only do here.
+        </p>
+      </div>
+
+      <div class="device-grid">
+        <div class="device-card">
+          <h3>Every camera at once</h3>
+          <p>
+            A live source list down one side: who's connected, who's still
+            joining, which camera currently carries the sound. Click any feed to
+            put it in the big monitor and see exactly what it's sending.
+          </p>
+        </div>
+
+        <div class="device-card">
+          <h3>Chat you can actually read</h3>
+          <p>
+            Live chat gets its own column instead of floating over your video,
+            with hide, block and report on every message.
+          </p>
+        </div>
+
+        <div class="device-card">
+          <h3>Share your screen</h3>
+          <p>
+            Send a window, a display, or a whole app into the show as another
+            angle. Slides, lyrics, a game, a second app: it's just another
+            camera to your audience.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SYSTEM REQUIREMENTS -->
+  <section class="nile-section">
+    <div class="nile-container split">
+      <div class="split-head">
+        <p class="nile-eyebrow">Before you download</p>
+        <h2>What you need.</h2>
+      </div>
+      <div class="split-body">
+        <h3>System requirements</h3>
+        <ul class="device-list">
+          <li>macOS 12 Monterey or later</li>
+          <li>Apple silicon (M1 and later) or an Intel Mac</li>
+          <li>An upload connection of 10 Mbps or better for a single camera</li>
+          <li>A free Nile account (you can make one in the app)</li>
+        </ul>
+
+        <h3>Permissions it will ask for</h3>
+        <p>
+          macOS asks the first time each one is used, not at install. Nothing is
+          requested until you actually reach for it.
+        </p>
+        <ul class="device-list">
+          <li><strong>Camera and microphone</strong> — when you go live</li>
+          <li>
+            <strong>Screen Recording</strong> — the first time you share a
+            screen. macOS requires a relaunch after you grant it; the app will
+            tell you and take you to the right settings pane.
+          </li>
+          <li>
+            <strong>Notifications</strong> — so you hear when a host you follow
+            goes live, or a show you have a ticket for is about to start
+          </li>
+        </ul>
+
+        <p class="fine-note">
+          Currents (short-form video) can be watched on the Mac but is still
+          created on a phone.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- INSTALLING -->
+  <section class="band nile-section">
+    <div class="nile-container">
+      <div class="section-head">
+        <p class="nile-eyebrow">Installing</p>
+        <h2>Three steps, then you're in.</h2>
+      </div>
+
+      <ol class="steps">
+        <li>
+          <h3>Open the disk image</h3>
+          <p>Double-click the downloaded <code>Nile.dmg</code>.</p>
+        </li>
+        <li>
+          <h3>Drag Nile to Applications</h3>
+          <p>
+            The window shows you exactly where to drop it. Then eject the disk
+            image.
+          </p>
+        </li>
+        <li>
+          <h3>Open it</h3>
+          <p>
+            The first launch asks you to confirm you meant to open an app from
+            the internet. Click Open. Nile is signed and notarized by Apple, so
+            that's the only warning you'll see.
+          </p>
+        </li>
+      </ol>
+
+      <p class="fine-note">
+        Nile keeps itself current: when a new version is published, the app
+        tells you and brings you back here. Updates are a fresh download, the
+        same three steps.
+      </p>
+    </div>
+  </section>
+
+  <!-- CLOSING -->
+  <section class="nile-section">
+    <div class="nile-container closing-inner">
+      <h2>Ready when you are.</h2>
+      <p class="closing-sub">
+        Free to download, free to watch. You only pay when you sell a ticket.
+      </p>
+      <a class="nile-btn nile-btn--primary" href={DMG_URL}>Download for Mac</a>
+      <p class="meta">
+        On a phone right now? Nile is on iPhone and Android too — <a
+          href="/resources/compatible-devices">see every supported device</a
+        >.
+      </p>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .hero-inner {
+    max-width: 720px;
+  }
+  .download-btn {
+    margin-top: var(--nile-s-6);
+  }
+  .meta {
+    margin-top: var(--nile-s-4);
+    font-size: 0.9rem;
+    color: var(--nile-txt-tertiary);
+  }
+
+  .band {
+    background: var(--nile-bg-surface);
+  }
+  .section-head {
+    max-width: 640px;
+    margin-bottom: var(--nile-s-10);
+  }
+  .section-sub {
+    color: var(--nile-txt-secondary);
+  }
+
+  .device-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--nile-s-6);
+  }
+  .device-card {
+    border: 1px solid var(--nile-border);
+    border-radius: var(--nile-r-lg);
+    padding: var(--nile-s-6);
+  }
+  .device-card h3 {
+    margin-bottom: var(--nile-s-3);
+  }
+  .device-card p {
+    color: var(--nile-txt-secondary);
+    font-size: 0.95rem;
+  }
+
+  /* Shared list style, matching the device guide */
+  .device-list {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 var(--nile-s-6);
+    display: grid;
+    gap: var(--nile-s-2);
+  }
+  .device-list li {
+    color: var(--nile-txt-secondary);
+    font-size: 0.95rem;
+    padding-left: var(--nile-s-5);
+    position: relative;
+  }
+  .device-list li::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0.55em;
+    width: 8px;
+    height: 8px;
+    border-radius: 2px;
+    background: var(--nile-volt);
+  }
+
+  .split {
+    display: grid;
+    grid-template-columns: 1fr 1.4fr;
+    gap: var(--nile-s-12);
+    align-items: start;
+  }
+  .split-head h2 {
+    margin-bottom: 0;
+  }
+  .split-body p {
+    color: var(--nile-txt-secondary);
+    margin-bottom: var(--nile-s-4);
+  }
+  .split-body h3 {
+    margin-bottom: var(--nile-s-2);
+  }
+  .split-body h3:not(:first-child) {
+    margin-top: var(--nile-s-6);
+  }
+
+  .steps {
+    list-style: none;
+    counter-reset: step;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--nile-s-6);
+  }
+  .steps li {
+    counter-increment: step;
+    border-top: 2px solid var(--nile-volt);
+    padding-top: var(--nile-s-4);
+  }
+  .steps li::before {
+    content: counter(step);
+    display: block;
+    font-family: var(--nile-font-display);
+    font-weight: 800;
+    font-size: 1.1rem;
+    color: var(--nile-volt);
+    margin-bottom: var(--nile-s-2);
+  }
+  .steps h3 {
+    margin-bottom: var(--nile-s-2);
+  }
+  .steps p {
+    color: var(--nile-txt-secondary);
+    font-size: 0.95rem;
+  }
+  .steps code {
+    font-size: 0.9em;
+    padding: 1px 6px;
+    border-radius: var(--nile-r-sm);
+    background: var(--nile-bg-raised);
+  }
+
+  .fine-note {
+    font-size: 0.9rem;
+    color: var(--nile-txt-tertiary);
+    border-top: 1px solid var(--nile-border);
+    padding-top: var(--nile-s-4);
+    margin-top: var(--nile-s-6);
+  }
+
+  .closing-inner {
+    text-align: center;
+    max-width: 600px;
+  }
+  .closing-sub {
+    color: var(--nile-txt-secondary);
+    margin-bottom: var(--nile-s-6);
+  }
+
+  @media (max-width: 880px) {
+    .device-grid,
+    .steps {
+      grid-template-columns: 1fr;
+    }
+    .split {
+      grid-template-columns: 1fr;
+      gap: var(--nile-s-8);
+    }
+  }
+</style>

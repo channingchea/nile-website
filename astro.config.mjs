@@ -8,8 +8,15 @@ import sitemap from "@astrojs/sitemap";
 export default defineConfig({
   site: "https://joinnile.com",
   output: "static",
-  // /auth/* are transient post-click landings (noindex) — keep them out of the sitemap.
-  integrations: [vue(), sitemap({ filter: (page) => !page.includes("/auth/") })],
+  // /auth/* are transient post-click landings (noindex) — keep them out of the
+  // sitemap. /download is noindex too, until the Mac app clears internal
+  // testing; drop it from this filter when the page goes into the nav.
+  integrations: [
+    vue(),
+    sitemap({
+      filter: (page) => !page.includes("/auth/") && !page.includes("/download"),
+    }),
+  ],
   vite: {
     // Pin CSS minification to classic syntax for older iOS Safari. Without a
     // target, the minifier rewrites every `max-width`/`min-width` query to
