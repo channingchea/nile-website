@@ -23,6 +23,12 @@
              approve / reject (+ pause/resume on active/paused). Actions call
              the review-ad-campaign fn, which captures / cancels the Stripe
              authorization (checkout is authorize-only for standalone ads).
+             Sponsorship offers are screened, not bought: approving one clears
+             it for the host, who accepts or declines in the app.
+    spotcheck → lobby offers from trusted advertisers that skipped the blocking
+             queue and are already in front of a host. Read-only except for a
+             pull-back to rejected, which is what stops the trusted tier from
+             becoming an unreviewed queue.
     reports → reported-content queue (Reported-Content Review Page, Phase 3):
              admins see everything with an open/reviewing report, grouped by
              target, via get_report_queue. Per-type actions (remove/restore
@@ -61,12 +67,24 @@ type Row = {
   budget_cents: number; spent_cents: number; impressions: number; clicks: number;
   review_note: string | null; created_at: string;
   placement: string | null; event_title: string | null; event_scheduled_at: string | null;
+  // Offer fields (sponsorships only). host_note is the host's own comment on a
+  // decline — deliberately separate from review_note, which is Nile's policy
+  // reviewer talking. Never show one under the other's label.
+  host_note: string | null; offer_expires_at: string | null; last_decline_code: string | null;
+  payment_recovery_url: string | null;
 };
-// Sponsorable event (0079 get_sponsorable_events) for the "Sponsor an event" picker.
+// Sponsorable event (get_sponsorable_events). Pricing is per-event now: the
+// host's floor, the platform ceiling, and how many offers this advertiser has
+// already spent on the event.
 type SponsEvent = {
   event_id: string; title: string; cover_image_url: string | null;
   scheduled_at: string; host_username: string | null; host_name: string | null;
-  host_avatar_url: string | null; is_ticketed: boolean; price_cents: number;
+  host_avatar_url: string | null; is_ticketed: boolean;
+  min_offer_cents: number; max_offer_cents: number;
+  offer_cap: number; my_offer_count: number;
+};
+type PriceSuggestion = {
+  suggested_cents: number; low_cents: number; high_cents: number; basis: string;
 };
 type DailyPoint = { day: string; impressions: number; clicks: number };
 
@@ -74,12 +92,13 @@ const PAGE = 15; // keyset page size (mirrors the app's Paged<T> convention)
 
 const sb = supabase();
 
-const view = ref<"loading" | "auth" | "setup" | "dash" | "build" | "admin" | "reports" | "admins" | "featured" | "feedback" | "denied">("loading");
-// Set by ?view=review / ?view=reports / ?view=admins / ?view=feedback so an
-// admin with a brand account lands on the relevant queue rather than their
-// dashboard; non-admins hit the denied guard in openAdmin()/openReports()/
-// openAdmins()/openFeedback().
+const view = ref<"loading" | "auth" | "setup" | "dash" | "build" | "admin" | "spotcheck" | "reports" | "admins" | "featured" | "feedback" | "denied">("loading");
+// Set by ?view=review / ?view=spotcheck / ?view=reports / ?view=admins /
+// ?view=feedback so an admin with a brand account lands on the relevant queue
+// rather than their dashboard; non-admins hit the denied guard in
+// openAdmin()/openSpotcheck()/openReports()/openAdmins()/openFeedback().
 let wantReview = false;
+let wantSpotcheck = false;
 let wantReports = false;
 let wantAdmins = false;
 let wantFeatured = false;
@@ -130,7 +149,7 @@ function setProduct(p: "feed" | "currents" | "sponsor") {
   product.value = p;
   if (p === "feed") adKind.value = "image";
   else if (p === "currents") adKind.value = "video";
-  else if (!sponsEvents.value.length) loadSponsEvents();
+  else if (!sponsEvents.value.length) { loadSponsConfig(); loadSponsEvents(); }
 }
 
 // Event sponsorship picker state (get_sponsorable_events).
@@ -153,6 +172,89 @@ function onSponsSearch() {
   clearTimeout(sponsSearchTimer);
   sponsSearchTimer = setTimeout(loadSponsEvents, 300);
 }
+
+// ── offer amount (Phase 5) ──────────────────────────────────────────────────
+// The advertiser names the price now. Two config values shape the copy under
+// the field: the host's revenue share, and the CPM the suggestion was built
+// from — without the latter we can't state a CPM without inventing one.
+const sponsConfig = ref<{ hostShare: number; targetCpmCents: number } | null>(null);
+const offerDollars = ref("");
+const suggestion = ref<PriceSuggestion | null>(null);
+const suggestLoading = ref(false);
+
+async function loadSponsConfig() {
+  if (sponsConfig.value) return;
+  const { data } = await sb.from("app_config")
+    .select("sponsorship_host_share, sponsorship_target_cpm_cents").eq("id", 1).maybeSingle();
+  const c = data as { sponsorship_host_share: number; sponsorship_target_cpm_cents: number } | null;
+  if (c) sponsConfig.value = { hostShare: c.sponsorship_host_share, targetCpmCents: c.sponsorship_target_cpm_cents };
+}
+
+// Picking an event is what triggers the price suggestion — one RPC per pick,
+// and the field is pre-filled from it so the common case is a single tap.
+async function selectEvent(ev: SponsEvent) {
+  if (selectedEvent.value?.event_id === ev.event_id) {
+    selectedEvent.value = null;
+    suggestion.value = null;
+    return;
+  }
+  selectedEvent.value = ev;
+  suggestion.value = null;
+  offerDollars.value = dollarsFor(ev.min_offer_cents);
+  suggestLoading.value = true;
+  const { data } = await sb.rpc("suggest_sponsorship_price", { p_event_id: ev.event_id });
+  const s = ((data as PriceSuggestion[] | null) ?? [])[0] ?? null;
+  // Guard against a slow response landing after the advertiser moved on.
+  if (selectedEvent.value?.event_id !== ev.event_id) return;
+  suggestion.value = s;
+  if (s) offerDollars.value = dollarsFor(s.suggested_cents);
+  suggestLoading.value = false;
+}
+
+const dollarsFor = (c: number) => (c % 100 === 0 ? String(c / 100) : (c / 100).toFixed(2));
+const offerCents = computed(() => {
+  const n = Number(offerDollars.value.replace(/[^0-9.]/g, ""));
+  return Number.isFinite(n) ? Math.round(n * 100) : NaN;
+});
+const offerError = computed(() => {
+  const ev = selectedEvent.value;
+  if (!ev) return "";
+  const c = offerCents.value;
+  if (!offerDollars.value.trim() || !Number.isFinite(c) || c <= 0) return "Enter an amount.";
+  if (c < ev.min_offer_cents) return `This host's minimum is ${moneyShort(ev.min_offer_cents)}.`;
+  if (c > ev.max_offer_cents) return `Offers are capped at ${moneyShort(ev.max_offer_cents)}.`;
+  return "";
+});
+const hostShareCents = computed(() => {
+  const cfg = sponsConfig.value, c = offerCents.value;
+  if (!cfg || !Number.isFinite(c) || c <= 0) return null;
+  return Math.round(c * cfg.hostShare);
+});
+const hostSharePct = computed(() =>
+  sponsConfig.value ? Math.round(sponsConfig.value.hostShare * 100) : 0);
+// The suggestion is target CPM × estimated reach, so the reach it implies can
+// be divided back out to price any amount as a CPM. That inversion only holds
+// while the suggestion sits strictly inside the floor/cap — once it's clamped
+// the arithmetic no longer describes an audience, so we say nothing instead.
+const offerCpmCents = computed(() => {
+  const s = suggestion.value, ev = selectedEvent.value, cfg = sponsConfig.value, c = offerCents.value;
+  if (!s || !ev || !cfg || !s.suggested_cents) return null;
+  if (s.suggested_cents <= ev.min_offer_cents || s.suggested_cents >= ev.max_offer_cents) return null;
+  if (!Number.isFinite(c) || c <= 0) return null;
+  return Math.round((c * cfg.targetCpmCents) / s.suggested_cents);
+});
+// `basis` arrives ready to read ("4 past events" / "estimated from follower
+// count"), so it goes on screen untouched — only the connector varies.
+const basisPhrase = computed(() => {
+  const b = suggestion.value?.basis ?? "";
+  return b.startsWith("estimated") ? b : `based on ${b}`;
+});
+// Offers die 48h before showtime, so that's the date the advertiser can hold
+// us to for an answer.
+const offerExpiresAt = computed(() =>
+  selectedEvent.value
+    ? new Date(new Date(selectedEvent.value.scheduled_at).getTime() - 48 * 3600_000)
+    : null);
 
 // Currents video ads (0068): a campaign whose creative is a ≤60s vertical video
 // served between Currents in the app. Same checkout/review; separate bucket.
@@ -245,8 +347,18 @@ async function applyCrop() {
 // poll the campaign row until the webhook flips it out of pending_payment,
 // so the dashboard doesn't show a stale "Awaiting payment" status.
 const returnBanner = ref(false);
+// Lobby checkout saves a card instead of taking payment, so the banner can't
+// talk about money until the poll tells us which product came back.
+const returnIsOffer = ref<boolean | null>(null);
 let returnCampaignId: string | null = null;
 let pollTimer: ReturnType<typeof setInterval> | null = null;
+
+const returnBannerText = computed(() =>
+  returnIsOffer.value === null
+    ? "Thanks — we're confirming your submission."
+    : returnIsOffer.value
+      ? "Offer sent. Nile checks the creative against our policies, then the host decides. You're not charged unless they accept."
+      : "Payment received. Your ad is now in review. You'll see it as Active here once approved.");
 
 onMounted(() => {
   boot();
@@ -260,6 +372,7 @@ onUnmounted(() => {
 async function boot() {
   const params = new URLSearchParams(window.location.search);
   wantReview = params.get("view") === "review"; // bookmarkable queue link
+  wantSpotcheck = params.get("view") === "spotcheck"; // bookmarkable spot-check link
   wantReports = params.get("view") === "reports"; // bookmarkable reported-content link
   wantAdmins = params.get("view") === "admins"; // bookmarkable admin-management link
   wantFeatured = params.get("view") === "featured"; // bookmarkable featured-curation link
@@ -279,11 +392,13 @@ function startCheckoutPoll() {
   if (!returnCampaignId || pollTimer) return;
   const id = returnCampaignId;
   let tries = 0;
-  pollTimer = setInterval(async () => {
+  const tick = async () => {
     tries += 1;
     const { data } = await sb
-      .from("ad_campaigns").select("status").eq("id", id).maybeSingle();
-    const status = (data as { status?: string } | null)?.status;
+      .from("ad_campaigns").select("status, placement").eq("id", id).maybeSingle();
+    const row = data as { status?: string; placement?: string } | null;
+    const status = row?.status;
+    if (row) returnIsOffer.value = row.placement === "lobby";
     const settled = !!status && status !== "pending_payment";
     if (settled || tries >= 15) { // ~30s max
       clearInterval(pollTimer!);
@@ -291,7 +406,9 @@ function startCheckoutPoll() {
       returnCampaignId = null;
       if (settled) await openDashboard(); // re-pull rows with the new status
     }
-  }, 2000);
+  };
+  pollTimer = setInterval(tick, 2000);
+  tick(); // the banner's wording depends on this, so don't wait 2s for it
 }
 
 async function afterAuth() {
@@ -306,6 +423,7 @@ async function afterAuth() {
   // ?view=review / ?view=reports bookmarks: send anyone who asked for a queue
   // through the matching guard (admins see it; non-admins get the denied view).
   if (wantReview) { await openAdmin(); return; }
+  if (wantSpotcheck) { await openSpotcheck(); return; }
   if (wantReports) { await openReports(); return; }
   if (wantAdmins) { await openAdmins(); return; }
   if (wantFeatured) { await openFeatured(); return; }
@@ -504,7 +622,7 @@ async function exportCampaignsCsv() {
     all = all.slice(0, CAP);
     const header = ["Campaign", "Status", "Budget", "Spent", "Impressions", "Clicks", "CTR", "Created"];
     const body = all.map((r) => [
-      r.headline || r.name, statusLabel(r.status), money(r.budget_cents), money(r.spent_cents),
+      r.headline || r.name, sponsorStatusLabel(r), money(r.budget_cents), money(r.spent_cents),
       r.impressions, r.clicks, ctr(r), new Date(r.created_at).toLocaleDateString(),
     ]);
     downloadCsv(`nile-ads-campaigns.csv`, [header, ...body]);
@@ -527,7 +645,11 @@ function exportDailyCsv() {
 // the campaign + creative image.
 const deletingId = ref("");
 async function deleteCampaign(r: Row) {
-  const holdNote = r.status === "pending_review" ? " The card hold will be released." : "";
+  // A lobby offer never took money — the card is only saved — so promising a
+  // released hold would be wrong there.
+  const holdNote = r.status !== "pending_review" ? ""
+    : r.placement === "lobby" ? " Your card won't be charged."
+    : " The card hold will be released.";
   if (!confirm(`Delete “${r.headline || r.name}”?${holdNote} This can't be undone.`)) return;
   msg.value = "";
   deletingId.value = r.campaign_id;
@@ -557,22 +679,76 @@ async function signOut() {
 }
 
 const money = (c: number) => `$${(c / 100).toFixed(2)}`;
+// Whole dollars where they're whole — pricing copy reads better as "$45" than
+// "$45.00", and every offer amount the advertiser types is a round number.
+const moneyShort = (c: number) => (c % 100 === 0 ? `$${c / 100}` : money(c));
 const ctr = (r: Row) => (r.impressions ? ((r.clicks / r.impressions) * 100).toFixed(1) : "0.0") + "%";
-function statusLabel(s: string) {
+// Sponsorship statuses describe an offer, not a purchase: nothing here should
+// imply money moved before the host accepted.
+function statusLabel(s: string, placement?: string | null) {
+  if (placement === "lobby" && s === "pending_review") return "Awaiting review";
   return ({
     pending_payment: "Awaiting payment",
     pending_review: "In review",
+    pending_host: "Awaiting host",
+    payment_pending: "Payment pending",
     active: "Active",
     paused: "Paused",
     rejected: "Rejected",
+    declined: "Declined",
+    expired: "Expired",
     completed: "Completed",
   } as Record<string, string>)[s] ?? s;
 }
+// An accepted offer is "Accepted" to the advertiser whether it's still to run
+// (active) or already ran (completed) — "Active"/"Completed" is ad-flight
+// language that doesn't map onto a one-night sponsorship.
+function sponsorStatusLabel(r: Row) {
+  if (r.placement !== "lobby") return statusLabel(r.status);
+  if (r.status === "active" || r.status === "completed") return "Accepted";
+  return statusLabel(r.status, r.placement);
+}
 function statusClass(s: string) {
   if (s === "active") return "ok";
-  if (s === "rejected") return "err";
-  if (s === "pending_review" || s === "pending_payment") return "warn";
+  if (s === "rejected" || s === "declined") return "err";
+  if (s === "pending_review" || s === "pending_payment" || s === "pending_host" || s === "payment_pending") return "warn";
   return "muted";
+}
+
+// ── sponsorship offers on the dashboard ─────────────────────────────────────
+// How long the host has left before the offer expires on its own. Deliberately
+// coarse: an exact ticking clock implies a precision the sweep job doesn't have.
+function offerCountdown(iso: string | null) {
+  if (!iso) return "";
+  const ms = new Date(iso).getTime() - Date.now();
+  if (ms <= 0) return "Expiring now";
+  const hours = Math.round(ms / 3600_000);
+  if (hours < 1) return "Expires within the hour";
+  if (hours < 48) return `Expires in ${hours} hour${hours === 1 ? "" : "s"}`;
+  return `Expires ${fmtDateTime(iso)}`;
+}
+// Re-offering means starting a fresh campaign against the same event: the
+// picker is the only place that knows the remaining offer allowance, so route
+// through it rather than trusting a count the dashboard doesn't have.
+async function makeAnotherOffer(r: Row) {
+  msg.value = "";
+  const { data } = await sb.from("ad_campaigns")
+    .select("event_id").eq("id", r.campaign_id).maybeSingle();
+  const eventId = (data as { event_id?: string } | null)?.event_id;
+  await openBuilder();
+  product.value = "sponsor";
+  sponsSearch.value = r.event_title ?? "";
+  await Promise.all([loadSponsConfig(), loadSponsEvents()]);
+  const ev = sponsEvents.value.find((e) => e.event_id === eventId);
+  if (!ev) {
+    msg.value = "That event is no longer open to sponsorship.";
+    return;
+  }
+  if (ev.my_offer_count >= ev.offer_cap) {
+    msg.value = `You've used all ${ev.offer_cap} of your offers for ${ev.title}.`;
+    return;
+  }
+  await selectEvent(ev);
 }
 
 // ── admin review queue (Part 3) ─────────────────────────────────────────────
@@ -651,10 +827,60 @@ async function openAdmin() {
   topicNames.value = Object.fromEntries(((tps as Topic[]) ?? []).map((t) => [t.id, t.name]));
   view.value = "admin";
 }
+// Spot-check (Phase 4): trusted advertisers' lobby creatives skip the blocking
+// queue and go straight in front of the host. They're not unreviewable — an
+// admin can still pull one back to rejected any time before the event, which
+// is the only thing that keeps the trusted tier from being an unread queue.
+const spotcheck = ref<AdminRow[]>([]);
+const spotcheckCursor = ref<string | null>(null);
+const spotcheckHasMore = ref(false);
+
+function fetchSpotcheck(cursor: string | null, limit: number) {
+  let q = sb.from("ad_campaigns").select(ADMIN_SELECT)
+    .eq("placement", "lobby").eq("status", "pending_host")
+    .order("created_at", { ascending: true }).limit(limit);
+  if (cursor) q = q.gt("created_at", cursor);
+  return q;
+}
+// Sorted client-side because the ordering key lives on the joined event row.
+const spotcheckRows = computed(() =>
+  [...spotcheck.value].sort((a, b) =>
+    new Date(a.events?.scheduled_at ?? 0).getTime() -
+    new Date(b.events?.scheduled_at ?? 0).getTime()));
+
+async function openSpotcheck() {
+  if (!isAdmin.value) { view.value = "denied"; return; } // same denied guard as openAdmin
+  msg.value = "";
+  wantSpotcheck = false;
+  view.value = "loading";
+  await reloadSpotcheck(PAGE);
+  view.value = "spotcheck";
+}
+async function reloadSpotcheck(limit = Math.max(PAGE, spotcheck.value.length)) {
+  const { data, error } = await fetchSpotcheck(null, limit);
+  if (error) msg.value = error.message;
+  const page = (data as unknown as AdminRow[]) ?? [];
+  spotcheck.value = page;
+  spotcheckCursor.value = page.length ? page[page.length - 1].created_at : null;
+  spotcheckHasMore.value = page.length === limit;
+}
+async function loadMoreSpotcheck() {
+  if (loadingMore.value || !spotcheckHasMore.value) return;
+  loadingMore.value = true;
+  const { data, error } = await fetchSpotcheck(spotcheckCursor.value, PAGE);
+  if (error) msg.value = error.message;
+  const page = (data as unknown as AdminRow[]) ?? [];
+  spotcheck.value = [...spotcheck.value, ...page];
+  spotcheckCursor.value = page.length ? page[page.length - 1].created_at : spotcheckCursor.value;
+  spotcheckHasMore.value = page.length === PAGE;
+  loadingMore.value = false;
+}
+
 // Non-admin leaving the denied view: clear the review intent and route them to
 // their own account (dashboard, or setup if they have no brand yet).
 async function leaveDenied() {
   wantReview = false;
+  wantSpotcheck = false;
   wantReports = false;
   wantAdmins = false;
   view.value = "loading";
@@ -729,7 +955,7 @@ async function act(r: AdminRow, action: "approve" | "reject" | "pause" | "resume
     const out = await res.json();
     if (!res.ok) throw new Error(out.error || "Action failed");
     closeDetail();
-    await reloadAdmin();
+    await (view.value === "spotcheck" ? reloadSpotcheck() : reloadAdmin());
   } catch (e: any) {
     msg.value = String(e?.message || e);
   } finally {
@@ -1239,6 +1465,8 @@ function resetBuilder() {
   product.value = "feed";
   selectedEvent.value = null;
   sponsSearch.value = "";
+  offerDollars.value = "";
+  suggestion.value = null;
   videoFile.value = null;
   if (videoPreviewUrl.value) URL.revokeObjectURL(videoPreviewUrl.value);
   videoPreviewUrl.value = "";
@@ -1393,6 +1621,7 @@ async function submitCampaign() {
   const isVideo = adKind.value === "video";
   const isSponsor = product.value === "sponsor";
   if (isSponsor && !editingId.value && !selectedEvent.value) { msg.value = "Pick an event to sponsor."; return; }
+  if (isSponsor && !editingId.value && offerError.value) { msg.value = offerError.value; return; }
   if (!isVideo && cropSrc.value) { msg.value = "Finish cropping the image first."; return; }
   if (!isVideo && !file.value && !editingId.value) { msg.value = "Add a creative image."; return; }
   if (isVideo && !videoFile.value && !editingId.value) { msg.value = "Add a creative video."; return; }
@@ -1431,13 +1660,15 @@ async function submitCampaign() {
 
     // CREATE:
     // 1) Upload the creative asset (image → ad-creatives, video → ad-videos).
-    // Sponsorship (0079): placement "lobby" + the chosen event; price is
-    // server-derived from app_config, so no budget/duration/topics are sent.
+    // Sponsorship: placement "lobby" + the chosen event + the offer amount.
+    // The floor, cap, 72h lead time and offer cap are all re-checked server
+    // side — this validation is only here to save a round trip.
     const payload: Record<string, unknown> = isSponsor
       ? {
           advertiser_account_id: account.value!.id,
           placement: "lobby",
           event_id: selectedEvent.value!.event_id,
+          amount_cents: offerCents.value,
           headline: headline.value.trim(),
           body: body.value.trim(),
           click_url: clickUrl.value.trim(),
@@ -1491,6 +1722,7 @@ const portalTabs = computed<Tab[]>(() => {
   if (account.value) t.push({ key: "dash", label: "My dashboard", go: openDashboard });
   if (isAdmin.value) {
     t.push({ key: "admin", label: "Review queue", go: openAdmin });
+    t.push({ key: "spotcheck", label: "Spot-check", go: openSpotcheck });
     t.push({ key: "reports", label: "Reported content", count: reportCount.value, go: openReports });
     t.push({ key: "feedback", label: "Bug reports", count: feedbackCount.value, go: openFeedback });
     t.push({ key: "featured", label: "Featured", go: openFeatured });
@@ -1499,7 +1731,7 @@ const portalTabs = computed<Tab[]>(() => {
   return t;
 });
 
-const TABBED_VIEWS = ["dash", "build", "admin", "reports", "feedback", "admins", "featured"];
+const TABBED_VIEWS = ["dash", "build", "admin", "spotcheck", "reports", "feedback", "admins", "featured"];
 const showTabs = computed(() => TABBED_VIEWS.includes(view.value) && portalTabs.value.length > 0);
 // The builder is a sub-page of the dashboard, so it keeps that tab lit.
 const activeTab = computed(() => (view.value === "build" ? "dash" : view.value));
@@ -1511,12 +1743,11 @@ const activeTab = computed(() => (view.value === "build" ? "dash" : view.value))
       <span>{{ msg }}</span>
       <button v-if="view === 'dash'" type="button" class="ap-retry" @click="openDashboard">Retry</button>
       <button v-else-if="view === 'admin'" type="button" class="ap-retry" @click="openAdmin">Retry</button>
+      <button v-else-if="view === 'spotcheck'" type="button" class="ap-retry" @click="openSpotcheck">Retry</button>
       <button v-else-if="view === 'admins'" type="button" class="ap-retry" @click="openAdmins">Retry</button>
       <button v-else-if="view === 'feedback'" type="button" class="ap-retry" @click="openFeedback">Retry</button>
     </div>
-    <div v-if="returnBanner" class="ap-msg ap-ok">
-      Payment received. Your ad is now in review. You'll see it as Active here once approved.
-    </div>
+    <div v-if="returnBanner" class="ap-msg ap-ok">{{ returnBannerText }}</div>
 
     <!-- Folder tabs: one strip for the whole portal, same links on every page -->
     <nav v-if="showTabs" class="ap-tabs" :class="{ 'ap-tabs--narrow': view === 'build' }" aria-label="Portal sections">
@@ -1631,13 +1862,43 @@ const activeTab = computed(() => (view.value === "build" ? "dash" : view.value))
                 <div v-if="r.status === 'rejected' && r.review_note" class="ap-note-inline">
                   Reviewer: {{ r.review_note }}
                 </div>
+                <!-- The host's comment is theirs, not Nile's — label it that
+                     way so a decline never reads as a policy rejection. -->
+                <div v-if="r.status === 'declined' && r.host_note" class="ap-note-inline">
+                  Host's comment: “{{ r.host_note }}”
+                </div>
+                <div v-if="r.status === 'pending_host' && r.offer_expires_at" class="ap-note-inline">
+                  With the host now · {{ offerCountdown(r.offer_expires_at) }}
+                </div>
+                <!-- The recovery session is written after the decline, so a row
+                     can sit here for a moment with no URL yet. -->
+                <div v-if="r.status === 'payment_pending'" class="ap-note-inline">
+                  The host accepted, but your card needs confirming. You have
+                  6 hours from the declined charge before the offer expires.
+                  <template v-if="!r.payment_recovery_url">
+                    Check your email for the confirmation link.
+                  </template>
+                </div>
+                <a
+                  v-if="r.status === 'payment_pending' && r.payment_recovery_url"
+                  class="nile-btn nile-btn--primary ap-recover"
+                  :href="r.payment_recovery_url" target="_blank" rel="noopener noreferrer"
+                  @click.stop
+                >Complete payment</a>
+                <div v-if="r.status === 'expired'" class="ap-note-inline">
+                  The host didn't respond before the offer expired. You weren't charged.
+                </div>
               </td>
-              <td data-label="Status"><span class="ap-badge" :class="statusClass(r.status)">{{ statusLabel(r.status) }}</span></td>
+              <td data-label="Status"><span class="ap-badge" :class="statusClass(r.status)">{{ sponsorStatusLabel(r) }}</span></td>
               <td data-label="Impr.">{{ r.impressions }}</td>
               <td data-label="Clicks">{{ r.clicks }}</td>
               <td data-label="CTR">{{ ctr(r) }}</td>
               <td data-label="Spent">{{ money(r.spent_cents) }} / {{ money(r.budget_cents) }}</td>
               <td class="ap-rowactions">
+                <button
+                  v-if="r.placement === 'lobby' && (r.status === 'declined' || r.status === 'expired')"
+                  class="ap-link" @click="makeAnotherOffer(r)"
+                >Make another offer</button>
                 <button v-if="r.status === 'pending_review'" class="ap-link" @click="openEdit(r)">Edit</button>
                 <button
                   v-if="r.status === 'pending_review' || r.status === 'rejected'"
@@ -1686,23 +1947,61 @@ const activeTab = computed(() => (view.value === "build" ? "dash" : view.value))
         <p v-if="sponsLoading" class="ap-center">Loading events…</p>
         <p v-else-if="sponsEvents.length === 0" class="ap-note" style="text-align:left">
           No sponsorable events right now. Events appear here when a host opens
-          them to sponsorship, at least 24 hours before showtime.
+          them to sponsorship, at least 72 hours before showtime.
         </p>
         <div v-else class="ap-spons-list">
           <button
             v-for="ev in sponsEvents" :key="ev.event_id" type="button" class="ap-spons-row"
             :aria-selected="selectedEvent?.event_id === ev.event_id"
-            @click="selectedEvent = selectedEvent?.event_id === ev.event_id ? null : ev"
+            :disabled="ev.my_offer_count >= ev.offer_cap"
+            @click="selectEvent(ev)"
           >
             <img v-if="ev.cover_image_url" :src="ev.cover_image_url" class="ap-spons-cover" alt="" />
             <div v-else class="ap-spons-cover ap-spons-cover--empty"></div>
             <span class="ap-spons-info">
               <b>{{ ev.title }}</b>
               <small>{{ ev.host_name || ev.host_username }} · {{ fmtDateTime(ev.scheduled_at) }}</small>
-              <small>{{ ev.is_ticketed ? 'Ticketed event' : 'Free event' }} · {{ money(ev.price_cents) }}</small>
+              <small>{{ ev.is_ticketed ? 'Ticketed event' : 'Free event' }} · Sponsorship from {{ moneyShort(ev.min_offer_cents) }}</small>
+              <!-- Three offers per event, so the count is worth showing before
+                   they spend one, not just when it runs out. -->
+              <small v-if="ev.my_offer_count">
+                You've made {{ ev.my_offer_count }} of {{ ev.offer_cap }} offers{{
+                  ev.my_offer_count >= ev.offer_cap ? " — that's the limit for this event" : '' }}
+              </small>
             </span>
           </button>
         </div>
+
+        <!-- Amount step: the advertiser names the price, we show our working -->
+        <template v-if="selectedEvent">
+          <label class="ap-label" for="ap-offer">Your offer</label>
+          <div class="ap-offer-field">
+            <span class="ap-offer-prefix">$</span>
+            <input
+              id="ap-offer" class="ap-input" v-model="offerDollars"
+              type="text" inputmode="decimal" placeholder="45"
+            />
+          </div>
+          <p v-if="suggestLoading" class="ap-offer-line">Working out a suggested amount…</p>
+          <template v-else-if="suggestion">
+            <p class="ap-offer-line">
+              Suggested {{ moneyShort(suggestion.suggested_cents) }} — {{ basisPhrase }}.
+              <button type="button" class="ap-link" @click="offerDollars = dollarsFor(suggestion.suggested_cents)">Use it</button>
+            </p>
+            <p v-if="offerCpmCents" class="ap-offer-line">
+              ≈{{ moneyShort(offerCpmCents) }} CPM at this host's typical audience
+            </p>
+            <p class="ap-offer-line">
+              Offers on events like this usually land between
+              {{ moneyShort(suggestion.low_cents) }} and {{ moneyShort(suggestion.high_cents) }} — you can offer anything from
+              {{ moneyShort(selectedEvent.min_offer_cents) }} to {{ moneyShort(selectedEvent.max_offer_cents) }}.
+            </p>
+          </template>
+          <p v-if="offerError" class="ap-offer-err">{{ offerError }}</p>
+          <p v-else-if="hostShareCents" class="ap-offer-line">
+            Host receives {{ money(hostShareCents) }} ({{ hostSharePct }}%)
+          </p>
+        </template>
 
         <label class="ap-label">Creative format</label>
         <div class="ap-grid">
@@ -1794,19 +2093,23 @@ const activeTab = computed(() => (view.value === "build" ? "dash" : view.value))
       </template>
 
       <button class="nile-btn nile-btn--primary ap-full" type="submit" :disabled="busy">
-        {{ busy ? (editingId ? 'Saving…' : 'Setting up…')
+        {{ busy ? (editingId ? 'Saving…' : product === 'sponsor' ? 'Sending…' : 'Setting up…')
            : editingId ? 'Save changes'
-           : (product === 'sponsor' && selectedEvent) ? `Continue to payment — ${money(selectedEvent.price_cents)}`
+           : product === 'sponsor' ? 'Send offer'
            : 'Continue to payment' }}
       </button>
-      <p class="ap-note" v-if="editingId">
+      <p class="ap-note" v-if="editingId && product === 'sponsor'">
+        Your offer stays in review after saving. The amount can't change here —
+        withdraw this offer and send a new one to change it.
+      </p>
+      <p class="ap-note" v-else-if="editingId">
         Your ad stays in review after saving. Budget and duration can't change
         because your card is already authorized.
       </p>
       <p class="ap-note" v-else-if="product === 'sponsor'">
-        You'll pay securely via Stripe. Your card is only authorized now — it's
-        charged when your sponsorship is approved, and you're automatically
-        refunded if the event is cancelled or never happens.
+        Nothing is charged until the host accepts. Stripe saves your card, Nile
+        checks the creative against our ad policies, then the host decides.<template v-if="offerExpiresAt">
+        You'll hear back by {{ fmtDateTime(offerExpiresAt.toISOString()) }} — after that the offer expires on its own.</template>
       </p>
       <p class="ap-note" v-else>
         You'll pay securely via Stripe. Your card is only authorized now. It's
@@ -1838,20 +2141,25 @@ const activeTab = computed(() => (view.value === "build" ? "dash" : view.value))
         <p class="ap-rmeta">
           <!-- Sponsorships are time-sensitive: the review window closes at showtime. -->
           <span v-if="r.placement === 'lobby'" class="ap-badge warn">
-            Sponsorship · {{ r.events?.title }}{{ r.events?.scheduled_at ? ' · ' + fmtDateTime(r.events.scheduled_at) : '' }}
+            {{ money(r.budget_cents) }} offer · {{ r.events?.title }}{{ r.events?.scheduled_at ? ' · ' + fmtDateTime(r.events.scheduled_at) : '' }}
           </span>
           <span v-if="r.placement === 'lobby'"> · </span>
           <span v-if="r.placement !== 'lobby' && r.ad_creatives?.[0]?.kind === 'video'">Currents video ad{{ r.ad_creatives[0].duration_ms ? ` · ${Math.round(r.ad_creatives[0].duration_ms! / 1000)}s` : '' }}</span>
           <span v-if="r.placement !== 'lobby' && r.ad_creatives?.[0]?.kind === 'video'"> · </span>
           <span>{{ r.advertiser_accounts?.name }} ({{ r.advertiser_accounts?.contact_email }})</span> ·
-          <span>{{ money(r.budget_cents) }}</span> ·
-          <span v-if="r.placement !== 'lobby'">Topics: {{ topicsFor(r) }}</span>
-          <span v-if="r.placement !== 'lobby'"> · </span>
+          <!-- The lobby badge above already carries the amount. -->
+          <template v-if="r.placement !== 'lobby'">
+            <span>{{ money(r.budget_cents) }}</span> · <span>Topics: {{ topicsFor(r) }}</span> ·
+          </template>
           <a v-if="r.ad_creatives?.[0]" :href="r.ad_creatives[0].click_url" target="_blank" rel="noopener noreferrer">{{ r.ad_creatives[0].click_url }}</a>
         </p>
         <div class="ap-rbtns">
+          <!-- Clearing a lobby offer takes no money — it hands the decision to
+               the host — so it must not say "approve & charge". -->
           <button class="nile-btn nile-btn--primary" :disabled="actingOn === r.id + 'approve'" @click="act(r, 'approve')">
-            {{ actingOn === r.id + 'approve' ? 'Approving…' : 'Approve & charge' }}
+            {{ actingOn === r.id + 'approve'
+               ? (r.placement === 'lobby' ? 'Clearing…' : 'Approving…')
+               : (r.placement === 'lobby' ? 'Clear for host' : 'Approve & charge') }}
           </button>
           <button class="ap-reject" @click="openDetail(r, true)">Reject…</button>
           <button type="button" class="ap-link" @click="openDetail(r)">View details</button>
@@ -1880,6 +2188,47 @@ const activeTab = computed(() => (view.value === "build" ? "dash" : view.value))
       </template>
 
       <button v-if="adminHasMore" class="ap-loadmore" :disabled="loadingMore" @click="loadMoreAdmin">
+        {{ loadingMore ? 'Loading…' : 'Load more' }}
+      </button>
+    </div>
+
+    <!-- SPOT-CHECK (trusted advertisers, already in front of a host) -->
+    <div v-else-if="view === 'spotcheck'" class="ap-card ap-wide">
+      <div class="ap-top">
+        <div>
+          <h2 class="ap-h" style="margin:0">Spot-check</h2>
+          <p class="ap-sub">
+            {{ spotcheckRows.length }} offer{{ spotcheckRows.length === 1 ? '' : 's' }} from trusted
+            advertisers that skipped the queue and are with a host now. Soonest event first — pull
+            anything back before the event and the host stops seeing it.
+          </p>
+        </div>
+      </div>
+
+      <p v-if="spotcheckRows.length === 0" class="ap-center">Nothing to spot-check.</p>
+      <div v-for="r in spotcheckRows" :key="r.id" class="ap-review">
+        <video
+          v-if="r.ad_creatives?.[0]?.kind === 'video'"
+          :src="adVideoUrl(r.ad_creatives[0])"
+          class="ap-preview" controls muted playsinline preload="metadata"
+        ></video>
+        <img v-else-if="r.ad_creatives?.[0]" :src="r.ad_creatives[0].image_url ?? ''" class="ap-preview ap-clickable" alt="" @click="openDetail(r)" />
+        <h3 class="ap-rh ap-clickable" @click="openDetail(r)">{{ r.ad_creatives?.[0]?.headline ?? r.name }}</h3>
+        <p class="ap-rb">{{ r.ad_creatives?.[0]?.body }}</p>
+        <p class="ap-rmeta">
+          <span class="ap-badge warn">
+            {{ money(r.budget_cents) }} offer · {{ r.events?.title }}{{ r.events?.scheduled_at ? ' · ' + fmtDateTime(r.events.scheduled_at) : '' }}
+          </span> ·
+          <span>{{ r.advertiser_accounts?.name }} ({{ r.advertiser_accounts?.contact_email }})</span> ·
+          <a v-if="r.ad_creatives?.[0]" :href="r.ad_creatives[0].click_url" target="_blank" rel="noopener noreferrer">{{ r.ad_creatives[0].click_url }}</a>
+        </p>
+        <div class="ap-rbtns">
+          <button class="ap-reject" @click="openDetail(r, true)">Pull back…</button>
+          <button type="button" class="ap-link" @click="openDetail(r)">View details</button>
+        </div>
+      </div>
+
+      <button v-if="spotcheckHasMore" class="ap-loadmore" :disabled="loadingMore" @click="loadMoreSpotcheck">
         {{ loadingMore ? 'Loading…' : 'Load more' }}
       </button>
     </div>
@@ -2251,8 +2600,8 @@ const activeTab = computed(() => (view.value === "build" ? "dash" : view.value))
         <p v-if="detail.ad_creatives?.[0]?.body" class="ap-rb">{{ detail.ad_creatives[0].body }}</p>
         <dl class="ap-dl">
           <div><dt>Advertiser</dt><dd>{{ detail.advertiser_accounts?.name ?? 'Host boost' }}<template v-if="detail.advertiser_accounts"> ({{ detail.advertiser_accounts.contact_email }})</template></dd></div>
-          <div><dt>Status</dt><dd><span class="ap-badge" :class="statusClass(detail.status)">{{ statusLabel(detail.status) }}</span></dd></div>
-          <div><dt>{{ detail.placement === 'lobby' ? 'Price' : 'Budget' }}</dt><dd>{{ money(detail.budget_cents) }}</dd></div>
+          <div><dt>Status</dt><dd><span class="ap-badge" :class="statusClass(detail.status)">{{ statusLabel(detail.status, detail.placement) }}</span></dd></div>
+          <div><dt>{{ detail.placement === 'lobby' ? 'Offer' : 'Budget' }}</dt><dd>{{ money(detail.budget_cents) }}</dd></div>
           <div v-if="detail.placement === 'lobby'"><dt>Event</dt><dd>{{ detail.events?.title }}{{ detail.events?.scheduled_at ? ' · ' + fmtDateTime(detail.events.scheduled_at) : '' }}</dd></div>
           <div v-else><dt>Flight</dt><dd>{{ fmtDate(detail.starts_at) }} – {{ fmtDate(detail.ends_at) }}</dd></div>
           <div v-if="detail.placement !== 'lobby'"><dt>Topics</dt><dd>{{ topicsFor(detail) }}</dd></div>
@@ -2260,12 +2609,22 @@ const activeTab = computed(() => (view.value === "build" ? "dash" : view.value))
           <div><dt>Submitted</dt><dd>{{ fmtDate(detail.created_at) }}</dd></div>
         </dl>
 
-        <template v-if="detail.status === 'pending_review'">
+        <template v-if="detail.status === 'pending_review' || detail.status === 'pending_host'">
+          <!-- pending_host means the offer is already with the host: there's
+               nothing left to clear, only a pull-back to reject. -->
           <div v-if="!rejectMode" class="ap-rbtns">
-            <button class="nile-btn nile-btn--primary" :disabled="actingOn === detail.id + 'approve'" @click="act(detail, 'approve')">
-              {{ actingOn === detail.id + 'approve' ? 'Approving…' : 'Approve & charge' }}
+            <button
+              v-if="detail.status === 'pending_review'"
+              class="nile-btn nile-btn--primary" :disabled="actingOn === detail.id + 'approve'"
+              @click="act(detail, 'approve')"
+            >
+              {{ actingOn === detail.id + 'approve'
+                 ? (detail.placement === 'lobby' ? 'Clearing…' : 'Approving…')
+                 : (detail.placement === 'lobby' ? 'Clear for host' : 'Approve & charge') }}
             </button>
-            <button class="ap-reject" @click="rejectMode = true">Reject…</button>
+            <button class="ap-reject" @click="rejectMode = true">
+              {{ detail.status === 'pending_host' ? 'Pull back…' : 'Reject…' }}
+            </button>
           </div>
           <template v-else>
             <label class="ap-label">Reason (optional, shared with the advertiser)</label>
@@ -2345,6 +2704,8 @@ const activeTab = computed(() => (view.value === "build" ? "dash" : view.value))
   transition: border-color .15s, background .15s;
 }
 .ap-spons-row[aria-selected='true'] { border-color: var(--nile-volt); background: rgba(200, 255, 0, 0.08); }
+/* Out of offers for this event — still listed, just not pickable. */
+.ap-spons-row:disabled { opacity: 0.5; cursor: default; }
 .ap-spons-cover {
   width: 72px; aspect-ratio: 4 / 3; object-fit: cover; flex: none;
   border-radius: var(--nile-r-sm, 8px); background: var(--nile-bg-surface);
@@ -2352,6 +2713,21 @@ const activeTab = computed(() => (view.value === "build" ? "dash" : view.value))
 .ap-spons-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .ap-spons-info b { font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ap-spons-info small { color: var(--nile-txt-secondary); font-size: 13px; }
+
+/* Offer amount: a $ glued to the left of the field, with the suggestion,
+   CPM and host split stacked underneath it. */
+.ap-offer-field { display: flex; align-items: stretch; gap: 8px; }
+.ap-offer-prefix {
+  display: flex; align-items: center; padding: 0 14px; flex: none;
+  background: var(--nile-bg-raised); border: 1px solid var(--nile-border);
+  border-radius: var(--nile-r-md); font-size: 17px; font-weight: 600;
+  color: var(--nile-txt-secondary); margin-bottom: var(--nile-s-3);
+}
+.ap-offer-field .ap-input { font-size: 17px; font-weight: 600; }
+.ap-offer-line { color: var(--nile-txt-tertiary); font-size: 13px; line-height: 1.5;
+  margin: 0 0 6px; }
+.ap-offer-line .ap-link { font-size: 13px; }
+.ap-offer-err { color: #fca5a5; font-size: 13px; line-height: 1.5; margin: 0 0 6px; }
 
 .ap-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: var(--nile-s-6); }
 .ap-chip {
@@ -2449,6 +2825,10 @@ const activeTab = computed(() => (view.value === "build" ? "dash" : view.value))
 .ap-rowactions .ap-link + .ap-link { margin-left: 12px; }
 .ap-note-inline { color: var(--nile-txt-tertiary); font-size: 12px; font-weight: 400;
   margin-top: 4px; line-height: 1.4; max-width: 340px; }
+/* Recovering a declined charge is the one action a dashboard row can carry
+   that isn't a link — it gets button weight because the offer dies without it. */
+.ap-recover { display: inline-block; margin-top: 8px; padding: 8px 16px;
+  font-size: 13px; text-decoration: none; }
 
 /* Bug reports & ideas */
 .ap-fb-filters { display: flex; gap: var(--nile-s-3); margin-bottom: var(--nile-s-5); flex-wrap: wrap; }
