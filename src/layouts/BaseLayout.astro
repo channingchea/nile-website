@@ -87,5 +87,32 @@ const ogImageUrl = new URL(ogImage, SITE.domain).href;
         );
       });
     </script>
+
+    <script is:inline>
+      // Self-heal for a browser still holding a pre-.htaccess cached copy of
+      // this page: its hashed stylesheets were deleted by a later deploy, so
+      // they 404 and the page renders unstyled. A failed same-origin sheet
+      // still exposes a CSSStyleSheet — it just has no rules. Reload once
+      // (a reload always revalidates); the guard stops any loop.
+      addEventListener("load", () => {
+        const stale = [
+          ...document.querySelectorAll('link[rel="stylesheet"][href^="/_astro/"]'),
+        ].some((l) => {
+          try {
+            return !l.sheet || l.sheet.cssRules.length === 0;
+          } catch {
+            return false;
+          }
+        });
+        if (!stale) return;
+        try {
+          if (sessionStorage.getItem("nile-css-recovery")) return;
+          sessionStorage.setItem("nile-css-recovery", "1");
+        } catch {
+          return;
+        }
+        location.reload();
+      });
+    </script>
   </body>
 </html>

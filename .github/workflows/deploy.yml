@@ -37,3 +37,39 @@ jobs:
           protocol: ftps
           local-dir: ./dist/
           server-dir: /public_html/
+
+      # A partial FTP upload (Hostinger times out now and then) used to ship a
+      # site whose pages referenced assets that were never uploaded, with no
+      # signal that anything was wrong. Fetch the live pages and prove every
+      # asset they reference actually resolves.
+      - name: Verify the live site serves a complete build
+        run: |
+          set -uo pipefail
+          sleep 15
+          fail=0
+          for page in "https://joinnile.com/" "https://ads.joinnile.com/advertise/portal"; do
+            origin=$(sed -E 's#(https?://[^/]+).*#\1#' <<<"$page")
+            html=$(curl -fsSL --retry 4 --retry-delay 5 "$page") \
+              || { echo "::error::$page did not load"; fail=1; continue; }
+
+            # HTML must revalidate, or the next deploy strands this copy.
+            cc=$(curl -fsSLI "$page" | tr -d '\r' | grep -i '^cache-control:' | tail -1 || true)
+            echo "$page -> ${cc:-<no cache-control>}"
+            grep -qi 'no-cache' <<<"$cc" \
+              || { echo "::error::$page is cacheable (${cc:-none}) — .htaccess not applied"; fail=1; }
+
+            assets=$(grep -oE '/_astro/[^"]+' <<<"$html" | sort -u)
+            [ -n "$assets" ] \
+              || { echo "::error::$page referenced no /_astro/ assets — not the expected build"; fail=1; }
+
+            for asset in $assets; do
+              read -r code type < <(curl -sSL -o /dev/null -w '%{http_code} %{content_type}' "$origin$asset")
+              echo "  $asset -> $code $type"
+              [ "$code" = 200 ] || { echo "::error::$origin$asset returned $code"; fail=1; }
+              case "$asset:$type" in
+                *.css:text/css*|*.js:text/javascript*|*.js:application/javascript*) ;;
+                *.css:*|*.js:*) echo "::error::$origin$asset served as $type"; fail=1 ;;
+              esac
+            done
+          done
+          exit $fail
