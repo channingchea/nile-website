@@ -44,7 +44,7 @@ jobs:
       # asset they reference actually resolves.
       - name: Verify the live site serves a complete build
         run: |
-          set -uo pipefail
+          set +e -uo pipefail   # GitHub runs `bash -e`; we do our own checks
           sleep 15
           fail=0
           for page in "https://joinnile.com/" "https://ads.joinnile.com/advertise/portal"; do
@@ -58,12 +58,12 @@ jobs:
             grep -qi 'no-cache' <<<"$cc" \
               || { echo "::error::$page is cacheable (${cc:-none}) — .htaccess not applied"; fail=1; }
 
-            assets=$(grep -oE '/_astro/[^"]+' <<<"$html" | sort -u)
+            assets=$(grep -oE '/_astro/[^"]+' <<<"$html" | sort -u || true)
             [ -n "$assets" ] \
               || { echo "::error::$page referenced no /_astro/ assets — not the expected build"; fail=1; }
 
             for asset in $assets; do
-              read -r code type < <(curl -sSL -o /dev/null -w '%{http_code} %{content_type}' "$origin$asset")
+              read -r code type < <(curl -sSL -o /dev/null -w '%{http_code} %{content_type}\n' "$origin$asset")
               echo "  $asset -> $code $type"
               [ "$code" = 200 ] || { echo "::error::$origin$asset returned $code"; fail=1; }
               case "$asset:$type" in
