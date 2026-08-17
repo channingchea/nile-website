@@ -965,7 +965,14 @@ async function act(r: AdminRow, action: "approve" | "reject" | "pause" | "resume
 
 // ── reported content (Phase 3) ──────────────────────────────────────────────
 type ReportRow = {
-  target_type: "user" | "post" | "event" | "comment" | "ad";
+  // Keep in step with the report_target_type Postgres enum. `current` and
+  // `current_comment` have been emitted by get_report_queue since migration
+  // 0066/0071 and were never added here — a reported Current fell through to
+  // the `user` arm of reportPreview() and rendered as a blank card with no
+  // remove button. `live_chat_message` arrives with 0108.
+  target_type:
+    | "user" | "post" | "event" | "comment" | "ad"
+    | "current" | "current_comment" | "live_chat_message";
   target_id: string;
   report_count: number;
   reasons: string[];
@@ -977,8 +984,17 @@ type ReportRow = {
   // deno/postgres jsonb — shape depends on target_type, see reportPreview().
   preview: Record<string, any>;
 };
-const TYPE_LABELS: Record<ReportRow["target_type"], string> =
-  { user: "User", post: "Post", event: "Event", comment: "Comment", ad: "Ad" };
+const TYPE_LABELS: Record<ReportRow["target_type"], string> = {
+  user: "User", post: "Post", event: "Event", comment: "Comment", ad: "Ad",
+  current: "Current", current_comment: "Current comment",
+  live_chat_message: "Live chat",
+};
+
+// Target types moderate-report can soft-remove and restore — its CONTENT_TABLES
+// map, mirrored. Anything not listed gets resolve/dismiss only.
+const REMOVABLE_TYPES: ReportRow["target_type"][] = [
+  "post", "comment", "event", "current", "current_comment", "live_chat_message",
+];
 
 const reportsQueue = ref<ReportRow[]>([]);
 const reportsCursor = ref<string | null>(null);
@@ -1050,8 +1066,21 @@ function reportPreview(r: ReportRow) {
       return { exists: true, image: p.cover_image_url || "", title: p.title || "(untitled event)", subtitle: `Hosted by @${p.host_username ?? "unknown"} · ${p.status}` };
     case "ad":
       return { exists: true, image: p.image_url || "", title: p.headline || p.campaign_name || "(ad)", subtitle: `${p.advertiser_name ?? "Host boost"} · ${statusLabel(p.campaign_status)}` };
-    default: // user
+    case "current":
+      return { exists: true, image: "", title: p.caption || "(no caption)", subtitle: `@${p.author_username ?? "unknown"}` };
+    case "current_comment":
+      return { exists: true, image: "", title: p.body ?? "", subtitle: `@${p.author_username ?? "unknown"}` };
+    case "live_chat_message":
+      // The show is half the context — a chat line on its own is close to
+      // unreviewable, so get_report_queue sends the event title along with it.
+      return { exists: true, image: "", title: p.body ?? "", subtitle: `@${p.author_username ?? "unknown"} · in “${p.event_title ?? "a show"}”` };
+    case "user":
       return { exists: true, image: p.avatar_url || "", title: p.display_name || `@${p.username}`, subtitle: p.bio || "" };
+    default:
+      // Named arms only. This used to be `default: // user`, which is how
+      // Currents rendered as empty user cards for two months — a new enum value
+      // should be visibly wrong here, not silently wrong.
+      return { exists: true, image: "", title: "(unrecognised content type)", subtitle: r.target_type };
   }
 }
 
@@ -2267,7 +2296,7 @@ const activeTab = computed(() => (view.value === "build" ? "dash" : view.value))
         <p v-for="(n, i) in r.notes" :key="i" class="ap-note-inline">“{{ n }}”</p>
 
         <div class="ap-rbtns">
-          <template v-if="reportPreview(r).exists && ['post', 'comment', 'event'].includes(r.target_type)">
+          <template v-if="reportPreview(r).exists && REMOVABLE_TYPES.includes(r.target_type)">
             <button
               v-if="!r.is_removed" class="ap-reject" :disabled="!!actingOnReport"
               @click="moderate(r, 'remove_content', 'Remove this content? It will be hidden app-wide right away.')"
