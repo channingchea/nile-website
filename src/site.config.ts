@@ -39,6 +39,7 @@ export const FOOTER_NAV = [
 export const LEGAL_NAV = [
   { label: "Privacy", href: "/privacy" },
   { label: "Terms", href: "/terms" },
+  { label: "Guidelines", href: "/guidelines" },
   { label: "Cookies", href: "/cookies" },
   { label: "Contact", href: "/contact" },
 ] as const;

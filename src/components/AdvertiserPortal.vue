@@ -92,7 +92,7 @@ const PAGE = 15; // keyset page size (mirrors the app's Paged<T> convention)
 
 const sb = supabase();
 
-const view = ref<"loading" | "auth" | "setup" | "dash" | "build" | "receipts" | "admin" | "spotcheck" | "reports" | "admins" | "featured" | "feedback" | "denied">("loading");
+const view = ref<"loading" | "auth" | "setup" | "dash" | "build" | "receipts" | "admin" | "spotcheck" | "reports" | "appeals" | "admins" | "featured" | "feedback" | "denied">("loading");
 // Set by ?view=review / ?view=spotcheck / ?view=reports / ?view=admins /
 // ?view=feedback so an admin with a brand account lands on the relevant queue
 // rather than their dashboard; non-admins hit the denied guard in
@@ -103,6 +103,7 @@ let wantReports = false;
 let wantAdmins = false;
 let wantFeatured = false;
 let wantFeedback = false;
+let wantAppeals = false;
 const msg = ref("");
 const busy = ref(false);
 const account = ref<Account | null>(null);
@@ -377,6 +378,7 @@ async function boot() {
   wantAdmins = params.get("view") === "admins"; // bookmarkable admin-management link
   wantFeatured = params.get("view") === "featured"; // bookmarkable featured-curation link
   wantFeedback = params.get("view") === "feedback"; // bookmarkable bug-report link
+  wantAppeals = params.get("view") === "appeals"; // bookmarkable appeals link
   if (params.get("campaign_id") && params.get("session_id")) {
     returnCampaignId = params.get("campaign_id");
     returnBanner.value = true;
@@ -418,6 +420,7 @@ async function afterAuth() {
   if (isAdmin.value) {
     await loadReportCount();
     await loadFeedbackCount();
+    await loadAppealCount();
   }
 
   // ?view=review / ?view=reports bookmarks: send anyone who asked for a queue
@@ -428,6 +431,7 @@ async function afterAuth() {
   if (wantAdmins) { await openAdmins(); return; }
   if (wantFeatured) { await openFeatured(); return; }
   if (wantFeedback) { await openFeedback(); return; }
+  if (wantAppeals) { await openAppeals(); return; }
 
   const acc = await loadAccount();
   if (!acc) {
@@ -1364,6 +1368,114 @@ async function saveFeedback(r: FeedbackRow) {
   }
 }
 
+// ── appeals (P3 #35, migration 0119) ────────────────────────────────────────
+// Someone contesting a removal or a suspension. They arrive through
+// joinnile.com/appeal — unauthenticated, because a suspended account can't hold
+// a session — and land in a table only admins can read. The embedded notice is
+// the statement of reasons they were given, so both halves are on one card.
+type AppealRow = {
+  id: string;
+  email: string;
+  body: string;
+  status: "open" | "upheld" | "overturned";
+  created_at: string;
+  decided_at: string | null;
+  decision_note: string | null;
+  user_id: string | null;
+  moderation_notices: {
+    action: string; target_type: string; reason: string | null; created_at: string;
+  } | null;
+};
+
+const appealsQueue = ref<AppealRow[]>([]);
+const appealsCursor = ref<string | null>(null);
+const appealsHasMore = ref(false);
+const appealsStatus = ref<"open" | "all">("open");
+const appealCount = ref(0);
+const appealNotes = ref<Record<string, string>>({});
+const actingOnAppeal = ref("");
+
+async function loadAppealCount() {
+  const { count } = await sb
+    .from("appeals")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "open");
+  appealCount.value = count ?? 0;
+}
+
+function appealsQuery(before: string | null, limit: number) {
+  let q = sb
+    .from("appeals")
+    .select(
+      "id, email, body, status, created_at, decided_at, decision_note, user_id, " +
+      "moderation_notices!appeals_notice_id_fkey(action, target_type, reason, created_at)"
+    );
+  if (appealsStatus.value === "open") q = q.eq("status", "open");
+  if (before) q = q.lt("created_at", before);
+  return q.order("created_at", { ascending: false }).limit(limit);
+}
+
+async function openAppeals() {
+  if (!isAdmin.value) { view.value = "denied"; return; } // same denied guard as openAdmin
+  msg.value = "";
+  wantAppeals = false;
+  view.value = "loading";
+  await refreshAppeals();
+  await loadAppealCount();
+  view.value = "appeals";
+}
+
+async function refreshAppeals() {
+  const { data, error } = await appealsQuery(null, PAGE);
+  if (error) msg.value = error.message;
+  const page = (data as unknown as AppealRow[]) ?? [];
+  appealsQueue.value = page;
+  appealsCursor.value = page.length ? page[page.length - 1].created_at : null;
+  appealsHasMore.value = page.length === PAGE;
+}
+
+async function loadMoreAppeals() {
+  if (loadingMore.value || !appealsHasMore.value) return;
+  loadingMore.value = true;
+  const { data, error } = await appealsQuery(appealsCursor.value, PAGE);
+  if (error) msg.value = error.message;
+  const page = (data as unknown as AppealRow[]) ?? [];
+  appealsQueue.value = [...appealsQueue.value, ...page];
+  appealsCursor.value = page.length ? page[page.length - 1].created_at : appealsCursor.value;
+  appealsHasMore.value = page.length === PAGE;
+  loadingMore.value = false;
+}
+
+// `appeals` is client-unwritable (0119); decide_appeal is the one narrow,
+// admin-gated write, and it refuses an appeal that someone else already
+// decided rather than overwriting them.
+async function decideAppeal(r: AppealRow, status: "upheld" | "overturned") {
+  msg.value = "";
+  actingOnAppeal.value = r.id;
+  try {
+    const { error } = await sb.rpc("decide_appeal", {
+      p_id: r.id,
+      p_status: status,
+      p_note: (appealNotes.value[r.id] ?? "").trim() || null,
+    });
+    if (error) throw new Error(error.message);
+    await refreshAppeals();
+    await loadAppealCount();
+  } catch (e: any) {
+    msg.value = String(e?.message || e);
+  } finally {
+    actingOnAppeal.value = "";
+  }
+}
+
+const appealNoticeLabel = (n: AppealRow["moderation_notices"]) => {
+  if (!n) return "No notice on file for this address";
+  const what = n.target_type === "user" ? "account" : n.target_type.replace(/_/g, " ");
+  return n.action === "suspend_user"
+    ? "Account suspended"
+    : `${n.action === "remove_content" ? "Removed" : "Restored"} ${what}`;
+};
+
 // ── admin management (manage-admins fn, migration 0055) ─────────────────────
 type AdminEntry = { user_id: string; email: string; created_at: string };
 type AdminAuditEntry = {
@@ -1851,6 +1963,7 @@ const portalTabs = computed<Tab[]>(() => {
     t.push({ key: "admin", label: "Review queue", go: openAdmin });
     t.push({ key: "spotcheck", label: "Spot-check", go: openSpotcheck });
     t.push({ key: "reports", label: "Reported content", count: reportCount.value, go: openReports });
+    t.push({ key: "appeals", label: "Appeals", count: appealCount.value, go: openAppeals });
     t.push({ key: "feedback", label: "Bug reports", count: feedbackCount.value, go: openFeedback });
     t.push({ key: "featured", label: "Featured", go: openFeatured });
     t.push({ key: "admins", label: "Admins", go: openAdmins });
@@ -1858,7 +1971,7 @@ const portalTabs = computed<Tab[]>(() => {
   return t;
 });
 
-const TABBED_VIEWS = ["dash", "build", "receipts", "admin", "spotcheck", "reports", "feedback", "admins", "featured"];
+const TABBED_VIEWS = ["dash", "build", "receipts", "admin", "spotcheck", "reports", "appeals", "feedback", "admins", "featured"];
 const showTabs = computed(() => TABBED_VIEWS.includes(view.value) && portalTabs.value.length > 0);
 // The builder is a sub-page of the dashboard, so it keeps that tab lit.
 const activeTab = computed(() => (view.value === "build" ? "dash" : view.value));
@@ -1873,6 +1986,7 @@ const activeTab = computed(() => (view.value === "build" ? "dash" : view.value))
       <button v-else-if="view === 'spotcheck'" type="button" class="ap-retry" @click="openSpotcheck">Retry</button>
       <button v-else-if="view === 'admins'" type="button" class="ap-retry" @click="openAdmins">Retry</button>
       <button v-else-if="view === 'feedback'" type="button" class="ap-retry" @click="openFeedback">Retry</button>
+      <button v-else-if="view === 'appeals'" type="button" class="ap-retry" @click="openAppeals">Retry</button>
     </div>
     <div v-if="returnBanner" class="ap-msg ap-ok">{{ returnBannerText }}</div>
 
@@ -2494,6 +2608,85 @@ const activeTab = computed(() => (view.value === "build" ? "dash" : view.value))
       </div>
 
       <button v-if="reportsHasMore" class="ap-loadmore" :disabled="loadingMore" @click="loadMoreReports">
+        {{ loadingMore ? 'Loading…' : 'Load more' }}
+      </button>
+    </div>
+
+    <!-- APPEALS (P3 #35) -->
+    <div v-else-if="view === 'appeals'" class="ap-card ap-wide">
+      <div class="ap-top">
+        <div>
+          <h2 class="ap-h" style="margin:0">Appeals</h2>
+          <p class="ap-sub">
+            {{ appealCount }} open · filed at joinnile.com/appeal by people contesting a
+            removal or a suspension
+          </p>
+        </div>
+      </div>
+
+      <div class="ap-fb-filters">
+        <select v-model="appealsStatus" @change="refreshAppeals">
+          <option value="open">Open</option>
+          <option value="all">All</option>
+        </select>
+      </div>
+
+      <p v-if="appealsQueue.length === 0" class="ap-center">Nothing here right now.</p>
+
+      <div v-for="r in appealsQueue" :key="r.id" class="ap-review">
+        <div class="ap-report-head">
+          <span class="ap-badge" :class="r.status === 'open' ? 'err' : 'muted'">
+            {{ r.status === 'open' ? 'Open' : r.status === 'upheld' ? 'Upheld' : 'Overturned' }}
+          </span>
+          <span v-if="!r.user_id" class="ap-badge muted">Unknown address</span>
+          <span class="ap-rmeta">{{ fmtDate(r.created_at) }}</span>
+        </div>
+
+        <h3 class="ap-rh">{{ r.email }}</h3>
+
+        <!-- What we told them, and what they say back. Deciding without both in
+             front of you is how an appeal becomes a rubber stamp. -->
+        <p class="ap-rmeta">
+          {{ appealNoticeLabel(r.moderation_notices) }}
+          <template v-if="r.moderation_notices"> · {{ fmtDate(r.moderation_notices.created_at) }}</template>
+        </p>
+        <p v-if="r.moderation_notices" class="ap-rb" style="white-space: pre-wrap">
+          Reason given: {{ r.moderation_notices.reason || '— none recorded —' }}
+        </p>
+
+        <p class="ap-rb" style="white-space: pre-wrap">{{ r.body }}</p>
+
+        <template v-if="r.status === 'open'">
+          <div class="ap-fb-triage">
+            <textarea
+              v-model="appealNotes[r.id]"
+              rows="3"
+              placeholder="What you decided and why. Kept on the appeal; reply to them by email."
+            ></textarea>
+            <div class="ap-rbtns">
+              <button
+                class="nile-btn"
+                :disabled="!!actingOnAppeal"
+                @click="decideAppeal(r, 'upheld')"
+              >{{ actingOnAppeal === r.id ? 'Saving…' : 'Uphold decision' }}</button>
+              <button
+                class="nile-btn nile-btn--primary"
+                :disabled="!!actingOnAppeal"
+                @click="decideAppeal(r, 'overturned')"
+              >{{ actingOnAppeal === r.id ? 'Saving…' : 'Overturn' }}</button>
+            </div>
+          </div>
+          <p class="ap-rmeta">
+            Overturning records the decision only — restoring the content or lifting the
+            suspension is still done from Reported content.
+          </p>
+        </template>
+        <p v-else class="ap-rmeta">
+          Decided {{ r.decided_at ? fmtDate(r.decided_at) : '' }}<template v-if="r.decision_note"> · {{ r.decision_note }}</template>
+        </p>
+      </div>
+
+      <button v-if="appealsHasMore" class="ap-loadmore" :disabled="loadingMore" @click="loadMoreAppeals">
         {{ loadingMore ? 'Loading…' : 'Load more' }}
       </button>
     </div>

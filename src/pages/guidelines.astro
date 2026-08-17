@@ -1,0 +1,122 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+
+const updated = "August 17, 2026";
+---
+
+<BaseLayout
+  title="Community Guidelines | Nile"
+  description="What is and isn't allowed on Nile, how we enforce it, and how to report or appeal."
+  canonical="/guidelines"
+>
+  <section class="legal-page nile-section">
+    <div class="nile-container legal-container">
+      <div class="legal-header">
+        <p class="nile-eyebrow">Legal</p>
+        <h1>Community Guidelines</h1>
+        <p class="updated">Last updated: {updated}</p>
+      </div>
+
+      <div class="legal-body">
+
+        <p>Nile is a place to perform live and to watch people perform. These guidelines say what that does and doesn't include. They apply everywhere on Nile — streams, replays, live chat, posts, comments, Currents, direct messages, profiles, event pages and ads. They sit alongside our <a href="/terms">Terms of Service</a>, which remain the binding agreement.</p>
+
+        <h2>Who Nile is for</h2>
+        <p>You must be at least 13 years old to have a Nile account. If you are under 18, a parent or legal guardian must have agreed to the Terms on your behalf. We ask for your date of birth when you sign up, and we close accounts we find to be under 13.</p>
+
+        <h2>What isn't allowed</h2>
+        <p>We have zero tolerance for objectionable content and abusive behaviour. Do not post, stream, send or link to:</p>
+        <ul>
+          <li><strong>Sexual content involving minors</strong>, in any form, real or generated. We report this to the relevant authorities and permanently remove the account.</li>
+          <li><strong>Pornography or sexually explicit performance</strong>, and sexual content involving anyone who has not consented to being filmed.</li>
+          <li><strong>Threats, harassment, stalking or bullying</strong>, including coordinated pile-ons and threats made in live chat.</li>
+          <li><strong>Hate speech</strong> — content attacking or dehumanising people over race, ethnicity, national origin, religion, disability, serious illness, sex, gender identity, sexual orientation, age or immigration status.</li>
+          <li><strong>Violence and graphic content</strong> — incitement to violence, glorification of a violent act, or gore posted for shock.</li>
+          <li><strong>Self-harm and suicide content</strong> that encourages, instructs or glorifies. Discussion of recovery and support is welcome.</li>
+          <li><strong>Illegal goods and regulated activity</strong> — drugs, weapons, stolen credentials, counterfeit goods, unlicensed gambling.</li>
+          <li><strong>Content you don't have the rights to</strong>, including recorded music, film, and other people's streams. If you perform someone else's work, make sure you are licensed to.</li>
+          <li><strong>Impersonation and deception</strong> — passing yourself off as another person or organisation, fake ticketed events, or misrepresenting what a ticket buys.</li>
+          <li><strong>Spam and platform manipulation</strong> — bulk unsolicited messaging, engagement farming, fake accounts, or inflating viewer, like or ad numbers.</li>
+          <li><strong>Private information</strong> published without consent — home addresses, government identifiers, financial account details, private communications.</li>
+        </ul>
+
+        <h2>Live events carry the same rules</h2>
+        <p>A stream is not a lower standard because it is live. Hosts are responsible for what happens on their stream, including what their crew and guests do on camera. Hosts can remove and ban participants from their own chat, turn on slow mode, and appoint crew to help moderate. A host who repeatedly lets a stream break these guidelines can lose the ability to host.</p>
+
+        <h2>Reporting</h2>
+        <p>Every post, comment, event, Current, profile, ad and live-chat message has a report control in the app. Reports go to a moderation queue that Nile staff review — we aim to action reports of objectionable content within 24 hours, and faster for anything involving a minor or a credible threat.</p>
+        <p>You can also block any account. Blocking hides that account's content from you and prevents them from messaging you. Blocked accounts are managed in Settings → Blocked accounts.</p>
+
+        <h2>What we do about violations</h2>
+        <p>Depending on what happened and whether it has happened before, we may:</p>
+        <ul>
+          <li>remove the content and leave the account alone;</li>
+          <li>end a live stream in progress;</li>
+          <li>suspend the account, which signs it out and blocks sign-in;</li>
+          <li>permanently close the account and, where money is involved, refund affected ticket buyers.</li>
+        </ul>
+        <p>Serious violations — anything involving a minor, credible threats of violence, or fraud — skip the warning and go straight to removal.</p>
+
+        <h2>Appeals</h2>
+        <p>If we removed your content or suspended your account and you think we got it wrong, tell us. We will explain what was actioned and why, and a person who did not make the original decision will review it. Start at our <a href="/appeal">appeal page</a>.</p>
+
+        <h2>Changes</h2>
+        <p>We update these guidelines as Nile grows and as new problems appear. The "last updated" date at the top changes when we do.</p>
+
+        <h2>Contact</h2>
+        <p>Questions about a decision or a report? <a href="/contact">Contact us here</a>.</p>
+
+      </div>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .legal-page {
+    padding-block: var(--nile-s-16);
+  }
+  .legal-container {
+    max-width: 760px;
+    margin-inline: auto;
+  }
+  .legal-header {
+    margin-bottom: var(--nile-s-12);
+  }
+  .legal-header h1 {
+    font-family: var(--nile-font-display);
+    font-size: clamp(2rem, 5vw, 3rem);
+    margin: var(--nile-s-3) 0 var(--nile-s-3);
+  }
+  .updated {
+    color: var(--nile-txt-tertiary);
+    font-size: 0.9rem;
+    margin: 0;
+  }
+  .legal-body {
+    color: var(--nile-txt-secondary);
+    line-height: 1.75;
+  }
+  .legal-body p {
+    margin: 0 0 var(--nile-s-4);
+  }
+  .legal-body h2 {
+    font-family: var(--nile-font-display);
+    font-size: 1.25rem;
+    color: var(--nile-txt-primary);
+    margin: var(--nile-s-10) 0 var(--nile-s-3);
+  }
+  .legal-body ul {
+    margin: 0 0 var(--nile-s-4);
+    padding-left: var(--nile-s-6);
+  }
+  .legal-body li {
+    margin-bottom: var(--nile-s-2);
+  }
+  .legal-body a {
+    color: var(--nile-volt);
+    text-decoration: none;
+  }
+  .legal-body a:hover {
+    text-decoration: underline;
+  }
+</style>

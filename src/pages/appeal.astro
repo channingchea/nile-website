@@ -1,0 +1,212 @@
+---
+// Appeal a moderation decision (P3 #35, DSA Art. 17).
+//
+// On the website rather than in the app on purpose: a suspended account can't
+// sign in, so an in-app form would only reach the people who don't need it.
+// Posts to the submit-appeal Edge Function, which is unauthenticated and does
+// its own validation and rate limiting.
+import BaseLayout from "../layouts/BaseLayout.astro";
+import { SUBMIT_APPEAL_URL } from "../lib/supabase";
+---
+
+<BaseLayout
+  title="Appeal a decision | Nile"
+  description="Ask Nile to review a content removal or account suspension."
+  canonical="/appeal"
+>
+  <section class="legal-page nile-section">
+    <div class="nile-container legal-container">
+      <div class="legal-header">
+        <p class="nile-eyebrow">Support</p>
+        <h1>Appeal a decision</h1>
+      </div>
+
+      <div class="legal-body">
+        <p>If we removed something you posted or suspended your account and you think we got it wrong, tell us here. Someone who wasn't involved in the original decision will look at it again, and we'll reply to the email address on your account.</p>
+        <p>Please include anything that helps: what was removed, when, and why you believe it belongs on Nile. Our <a href="/guidelines">Community Guidelines</a> set out what we're measuring it against.</p>
+
+        <form id="appeal-form" novalidate>
+          <label for="appeal-kind">What are you appealing?</label>
+          <select id="appeal-kind" name="kind">
+            <option value="suspension">My account was suspended</option>
+            <option value="content">Something I posted was removed</option>
+          </select>
+
+          <label for="appeal-email">Email on your Nile account</label>
+          <input
+            id="appeal-email"
+            name="email"
+            type="email"
+            autocomplete="email"
+            placeholder="you@example.com"
+            required
+          />
+
+          <label for="appeal-body">What happened?</label>
+          <textarea
+            id="appeal-body"
+            name="body"
+            rows="7"
+            maxlength="4000"
+            placeholder="Tell us what was removed and why you think the decision was wrong."
+            required></textarea>
+
+          <button type="submit" id="appeal-submit">Send appeal</button>
+          <p id="appeal-msg" class="msg" role="status" aria-live="polite"></p>
+        </form>
+
+        <h2>What happens next</h2>
+        <p>Appeals are read in the order they arrive. We aim to reply within a few days, and sooner where an account is suspended. Sending the same appeal repeatedly doesn't move it up the queue — you can send up to three a day.</p>
+        <p>For anything that isn't a moderation decision, use our <a href="/contact">contact page</a> instead.</p>
+      </div>
+    </div>
+  </section>
+</BaseLayout>
+
+<script define:vars={{ SUBMIT_APPEAL_URL }}>
+  const form = document.getElementById("appeal-form");
+  const msg = document.getElementById("appeal-msg");
+  const btn = document.getElementById("appeal-submit");
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const email = document.getElementById("appeal-email").value.trim();
+    const body = document.getElementById("appeal-body").value.trim();
+    const kind = document.getElementById("appeal-kind").value;
+
+    // Mirrors the server's rules so the common mistakes don't cost a round
+    // trip; the function re-checks both regardless.
+    if (!email.includes("@")) {
+      msg.textContent = "Enter the email address on your Nile account.";
+      msg.className = "msg err";
+      return;
+    }
+    if (body.length < 20) {
+      msg.textContent = "Tell us a little more about what happened.";
+      msg.className = "msg err";
+      return;
+    }
+
+    btn.disabled = true;
+    msg.textContent = "Sending…";
+    msg.className = "msg";
+    try {
+      const res = await fetch(SUBMIT_APPEAL_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, body, kind }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.ok) {
+        form.reset();
+        msg.textContent =
+          "Thanks — we've got it. We'll reply to that address once someone has reviewed the decision.";
+        msg.className = "msg ok";
+      } else {
+        msg.textContent = data.error || "We couldn't send that. Please try again shortly.";
+        msg.className = "msg err";
+      }
+    } catch {
+      msg.textContent = "We couldn't reach Nile. Check your connection and try again.";
+      msg.className = "msg err";
+    } finally {
+      btn.disabled = false;
+    }
+  });
+</script>
+
+<style>
+  .legal-page {
+    padding-block: var(--nile-s-16);
+  }
+  .legal-container {
+    max-width: 760px;
+    margin-inline: auto;
+  }
+  .legal-header {
+    margin-bottom: var(--nile-s-12);
+  }
+  .legal-header h1 {
+    font-family: var(--nile-font-display);
+    font-size: clamp(2rem, 5vw, 3rem);
+    margin: var(--nile-s-3) 0 var(--nile-s-3);
+  }
+  .legal-body {
+    color: var(--nile-txt-secondary);
+    line-height: 1.75;
+  }
+  .legal-body p {
+    margin: 0 0 var(--nile-s-4);
+  }
+  .legal-body h2 {
+    font-family: var(--nile-font-display);
+    font-size: 1.25rem;
+    color: var(--nile-txt-primary);
+    margin: var(--nile-s-10) 0 var(--nile-s-3);
+  }
+  .legal-body a {
+    color: var(--nile-volt);
+    text-decoration: none;
+  }
+  .legal-body a:hover {
+    text-decoration: underline;
+  }
+
+  form {
+    display: grid;
+    gap: var(--nile-s-2);
+    margin: var(--nile-s-8) 0 var(--nile-s-4);
+  }
+  label {
+    color: var(--nile-txt-primary);
+    font-size: 0.9rem;
+    font-weight: 600;
+    margin-top: var(--nile-s-3);
+  }
+  input,
+  select,
+  textarea {
+    width: 100%;
+    padding: 12px 14px;
+    border-radius: 10px;
+    border: 1px solid var(--nile-border);
+    background: var(--nile-bg-surface);
+    color: var(--nile-txt-primary);
+    font: inherit;
+  }
+  input:focus,
+  select:focus,
+  textarea:focus {
+    outline: 2px solid var(--nile-volt);
+    outline-offset: 1px;
+  }
+  textarea {
+    resize: vertical;
+  }
+  button {
+    justify-self: start;
+    margin-top: var(--nile-s-4);
+    padding: 12px 24px;
+    border: 0;
+    border-radius: 999px;
+    background: var(--nile-volt);
+    color: #0a0a0a;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  button:disabled {
+    opacity: 0.6;
+    cursor: default;
+  }
+  .msg {
+    min-height: 1.2em;
+    margin: var(--nile-s-2) 0 0;
+    font-size: 0.95rem;
+  }
+  .msg.ok {
+    color: var(--nile-volt);
+  }
+  .msg.err {
+    color: #ff6b6b;
+  }
+</style>
