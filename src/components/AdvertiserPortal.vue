@@ -92,7 +92,7 @@ const PAGE = 15; // keyset page size (mirrors the app's Paged<T> convention)
 
 const sb = supabase();
 
-const view = ref<"loading" | "auth" | "setup" | "dash" | "build" | "admin" | "spotcheck" | "reports" | "admins" | "featured" | "feedback" | "denied">("loading");
+const view = ref<"loading" | "auth" | "setup" | "dash" | "build" | "receipts" | "admin" | "spotcheck" | "reports" | "admins" | "featured" | "feedback" | "denied">("loading");
 // Set by ?view=review / ?view=spotcheck / ?view=reports / ?view=admins /
 // ?view=feedback so an admin with a brand account lands on the relevant queue
 // rather than their dashboard; non-admins hit the denied guard in
@@ -644,6 +644,7 @@ function exportDailyCsv() {
 // review-ad-campaign fn cancels the card hold (in-review only), then deletes
 // the campaign + creative image.
 const deletingId = ref("");
+const stoppingId = ref("");
 async function deleteCampaign(r: Row) {
   // A lobby offer never took money — the card is only saved — so promising a
   // released hold would be wrong there.
@@ -672,6 +673,93 @@ async function deleteCampaign(r: Row) {
     deletingId.value = "";
   }
 }
+// Stop a campaign that is already running. Withdraw only ever covered ads that
+// never went live and pause/resume are admin-only, so until now a brand that
+// needed its ad down had to email us and wait. The undelivered budget comes
+// back automatically — spend follows delivered days, so there is a real number
+// to return rather than a negotiation.
+async function stopCampaign(r: Row) {
+  const undelivered = Math.max((r.budget_cents ?? 0) - (r.spent_cents ?? 0), 0);
+  const refundNote = undelivered > 0
+    ? ` ${money(undelivered)} of undelivered budget will be refunded to your card.`
+    : " This campaign has already delivered its full budget, so there's nothing to refund.";
+  if (!confirm(`Stop “${r.headline || r.name}” now?${refundNote} This can't be undone.`)) return;
+  msg.value = "";
+  stoppingId.value = r.campaign_id;
+  try {
+    const { data: sess } = await sb.auth.getSession();
+    const res = await fetch(REVIEW_AD_CAMPAIGN_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${sess.session?.access_token}`,
+      },
+      body: JSON.stringify({ campaign_id: r.campaign_id, action: "stop" }),
+    });
+    const out = await res.json();
+    if (!res.ok) throw new Error(out.error || "Couldn't stop this campaign");
+    msg.value = out.refunded_cents > 0
+      ? `Campaign stopped. ${money(out.refunded_cents)} is on its way back to your card.`
+      : "Campaign stopped.";
+    await openDashboard();
+  } catch (e: any) {
+    msg.value = String(e?.message || e);
+  } finally {
+    stoppingId.value = "";
+  }
+}
+
+// ── receipts (review #25) ───────────────────────────────────────────────────
+// There was no billing history anywhere in this portal: no invoice, no record
+// of a refund, no way for a brand to answer "what did we actually spend".
+type Receipt = {
+  campaign_id: string; name: string; placement: string | null; status: string;
+  event_title: string | null; charged_at: string;
+  budget_cents: number; spent_cents: number;
+  refunded_cents: number; net_cents: number;
+  stopped_at: string | null; payment_intent: string | null;
+  starts_at: string; ends_at: string;
+};
+const receipts = ref<Receipt[]>([]);
+const receiptsLoading = ref(false);
+
+async function openReceipts() {
+  view.value = "receipts";
+  receiptsLoading.value = true;
+  try {
+    const { data, error } = await sb.rpc("get_advertiser_receipts", {
+      p_account_id: account.value!.id,
+    });
+    if (error) throw error;
+    receipts.value = (data ?? []) as Receipt[];
+  } catch (e: any) {
+    msg.value = String(e?.message || e);
+  } finally {
+    receiptsLoading.value = false;
+  }
+}
+
+function receiptsCsv() {
+  const head = "Campaign,Placement,Status,Charged,Budget,Delivered,Refunded,Net,Payment\n";
+  const rows = receipts.value.map((x) => [
+    `"${(x.name ?? "").replace(/"/g, '""')}"`,
+    x.placement ?? "feed",
+    x.stopped_at ? "stopped" : x.status,
+    fmtDate(x.charged_at),
+    (x.budget_cents / 100).toFixed(2),
+    (x.spent_cents / 100).toFixed(2),
+    (x.refunded_cents / 100).toFixed(2),
+    (x.net_cents / 100).toFixed(2),
+    x.payment_intent ?? "",
+  ].join(","));
+  const blob = new Blob([head + rows.join("\n")], { type: "text/csv" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "nile-ad-receipts.csv";
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
 async function signOut() {
   await sb.auth.signOut();
   account.value = null;
@@ -760,6 +848,8 @@ type AdminRow = {
     image_url: string | null; headline: string; body: string | null;
     click_url: string; kind: "image" | "video" | null;
     video_path: string | null; duration_ms: number | null;
+    // Sent back on approve as a change fingerprint — see act().
+    updated_at: string | null;
   }[];
   ad_targeting: { topic_ids: string[] | null }[];
   advertiser_accounts: { name: string; contact_email: string } | null;
@@ -778,7 +868,7 @@ const topicNames = ref<Record<string, string>>({});
 const actingOn = ref("");
 
 const ADMIN_SELECT =
-  "id, name, status, budget_cents, starts_at, ends_at, created_at, placement, ad_creatives(image_url, headline, body, click_url, kind, video_path, duration_ms), ad_targeting(topic_ids), advertiser_accounts(name, contact_email), events(title, scheduled_at)";
+  "id, name, status, budget_cents, starts_at, ends_at, created_at, placement, ad_creatives(image_url, headline, body, click_url, kind, video_path, duration_ms, updated_at), ad_targeting(topic_ids), advertiser_accounts(name, contact_email), events(title, scheduled_at)";
 function fetchAdmin(cursor: string | null, limit: number) {
   let q = sb.from("ad_campaigns").select(ADMIN_SELECT)
     .in("status", ["pending_review", "active", "paused"])
@@ -950,6 +1040,13 @@ async function act(r: AdminRow, action: "approve" | "reject" | "pause" | "resume
         campaign_id: r.id,
         action,
         ...(note?.trim() ? { note: note.trim() } : {}),
+        // The creative as it was when this row was rendered. The advertiser can
+        // still edit a pending_review ad, so without this an admin could
+        // approve copy that changed while the modal was open; the fn refuses
+        // the approve rather than granting it to different words.
+        ...(action === "approve" && r.ad_creatives?.[0]?.updated_at
+          ? { creative_updated_at: r.ad_creatives[0].updated_at }
+          : {}),
       }),
     });
     const out = await res.json();
@@ -1749,6 +1846,7 @@ type Tab = { key: string; label: string; count?: number; go: () => void };
 const portalTabs = computed<Tab[]>(() => {
   const t: Tab[] = [];
   if (account.value) t.push({ key: "dash", label: "My dashboard", go: openDashboard });
+  if (account.value) t.push({ key: "receipts", label: "Billing", go: openReceipts });
   if (isAdmin.value) {
     t.push({ key: "admin", label: "Review queue", go: openAdmin });
     t.push({ key: "spotcheck", label: "Spot-check", go: openSpotcheck });
@@ -1760,7 +1858,7 @@ const portalTabs = computed<Tab[]>(() => {
   return t;
 });
 
-const TABBED_VIEWS = ["dash", "build", "admin", "spotcheck", "reports", "feedback", "admins", "featured"];
+const TABBED_VIEWS = ["dash", "build", "receipts", "admin", "spotcheck", "reports", "feedback", "admins", "featured"];
 const showTabs = computed(() => TABBED_VIEWS.includes(view.value) && portalTabs.value.length > 0);
 // The builder is a sub-page of the dashboard, so it keeps that tab lit.
 const activeTab = computed(() => (view.value === "build" ? "dash" : view.value));
@@ -1934,6 +2032,13 @@ const activeTab = computed(() => (view.value === "build" ? "dash" : view.value))
                   class="ap-link ap-danger" :disabled="deletingId === r.campaign_id"
                   @click="deleteCampaign(r)"
                 >{{ deletingId === r.campaign_id ? 'Deleting…' : 'Delete' }}</button>
+                <!-- Live campaigns: the brand's own kill switch. Undelivered
+                     budget comes back to the card automatically. -->
+                <button
+                  v-if="r.status === 'active' || r.status === 'paused'"
+                  class="ap-link ap-danger" :disabled="stoppingId === r.campaign_id"
+                  @click="stopCampaign(r)"
+                >{{ stoppingId === r.campaign_id ? 'Stopping…' : 'Stop' }}</button>
               </td>
             </tr>
           </tbody>
@@ -1942,6 +2047,46 @@ const activeTab = computed(() => (view.value === "build" ? "dash" : view.value))
           {{ loadingMore ? 'Loading…' : 'Load more' }}
         </button>
       </template>
+    </div>
+
+    <!-- BILLING / RECEIPTS -->
+    <div v-else-if="view === 'receipts'" class="ap-card">
+      <div class="ap-top">
+        <h2 class="ap-h" style="margin:0">Billing</h2>
+        <button v-if="receipts.length" type="button" class="ap-link" @click="receiptsCsv">Export CSV</button>
+      </div>
+      <p class="ap-sub">
+        Every campaign that took payment. “Delivered” is what the campaign has
+        actually earned against its budget; anything left over when a campaign
+        is stopped or pulled is refunded to the card that paid.
+      </p>
+
+      <div v-if="receiptsLoading" class="ap-center">Loading…</div>
+      <p v-else-if="!receipts.length" class="ap-sub">Nothing has been charged yet.</p>
+      <table v-else class="ap-tbl ap-tbl--cards">
+        <thead>
+          <tr>
+            <th>Campaign</th><th>Charged</th><th>Budget</th>
+            <th>Delivered</th><th>Refunded</th><th>Net</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="x in receipts" :key="x.campaign_id">
+            <td class="name" data-label="Campaign">
+              {{ x.name }}
+              <span class="ap-badge" :class="statusClass(x.status)">
+                {{ x.stopped_at ? 'Stopped' : statusLabel(x.status, x.placement) }}
+              </span>
+              <div v-if="x.event_title" class="ap-note-inline">{{ x.event_title }}</div>
+            </td>
+            <td data-label="Charged">{{ fmtDate(x.charged_at) }}</td>
+            <td data-label="Budget">{{ money(x.budget_cents) }}</td>
+            <td data-label="Delivered">{{ money(x.spent_cents) }}</td>
+            <td data-label="Refunded">{{ x.refunded_cents ? money(x.refunded_cents) : '—' }}</td>
+            <td data-label="Net">{{ money(x.net_cents) }}</td>
+          </tr>
+        </tbody>
+      </table>
     </div>
 
     <!-- BUILDER -->
@@ -2210,6 +2355,10 @@ const activeTab = computed(() => (view.value === "build" ? "dash" : view.value))
                 <button class="ap-link" :disabled="!!actingOn" @click="act(r, r.status === 'active' ? 'pause' : 'resume')">
                   {{ r.status === 'active' ? 'Pause' : 'Resume' }}
                 </button>
+                <!-- Killing a live ad, with the undelivered budget returned.
+                     Pausing alone left a policy-violating campaign parked
+                     non-terminally for ever and nothing went back. -->
+                <button class="ap-reject" @click="openDetail(r, true)">Kill…</button>
               </td>
             </tr>
           </tbody>
@@ -2669,11 +2818,31 @@ const activeTab = computed(() => (view.value === "build" ? "dash" : view.value))
             </div>
           </template>
         </template>
-        <div v-else class="ap-rbtns">
-          <button class="nile-btn nile-btn--primary" :disabled="!!actingOn" @click="act(detail, detail.status === 'active' ? 'pause' : 'resume')">
-            {{ detail.status === 'active' ? 'Pause' : 'Resume' }}
-          </button>
-        </div>
+        <template v-else>
+          <div v-if="!rejectMode" class="ap-rbtns">
+            <button class="nile-btn nile-btn--primary" :disabled="!!actingOn" @click="act(detail, detail.status === 'active' ? 'pause' : 'resume')">
+              {{ detail.status === 'active' ? 'Pause' : 'Resume' }}
+            </button>
+            <button class="ap-reject" @click="rejectMode = true">Kill &amp; refund…</button>
+          </div>
+          <template v-else>
+            <p class="ap-hint">
+              This ends the campaign for good and refunds the part of the budget
+              that was never delivered. Pausing is reversible; this isn't.
+            </p>
+            <label class="ap-label">Reason (optional, shared with the advertiser)</label>
+            <textarea
+              class="ap-input ap-textarea" v-model="rejectNote" maxlength="300"
+              placeholder="e.g. The landing page violates our advertising policy."
+            ></textarea>
+            <div class="ap-rbtns">
+              <button class="ap-reject" :disabled="actingOn === detail.id + 'reject'" @click="act(detail, 'reject', rejectNote)">
+                {{ actingOn === detail.id + 'reject' ? 'Killing…' : 'Kill & refund' }}
+              </button>
+              <button type="button" class="ap-link" @click="rejectMode = false">Back</button>
+            </div>
+          </template>
+        </template>
       </div>
     </div>
   </div>
