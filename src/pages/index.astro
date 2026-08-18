@@ -257,7 +257,7 @@ const liveNow = [
                 label={f.title}
                 src={f.src}
                 alt={f.alt}
-                radius="sm"
+                radius="md"
                 ratio="16 / 9"
                 class="feature-shot"
               />
@@ -493,10 +493,18 @@ const liveNow = [
     grid-template-columns: repeat(2, 1fr);
     gap: var(--nile-s-4);
   }
-  .feature-shot {
-    margin-bottom: var(--nile-s-3);
+  /* Matches the "How it works" step cards: the shot bleeds to the card edge
+     instead of sitting inset in the default nile-card padding. */
+  .feature {
+    padding: 0;
+    overflow: hidden;
+  }
+  .feature h3,
+  .feature p {
+    padding-inline: var(--nile-s-6);
   }
   .feature h3 {
+    margin-top: var(--nile-s-4);
     font-size: 1.1rem;
     margin-bottom: var(--nile-s-1);
   }
@@ -504,6 +512,7 @@ const liveNow = [
     color: var(--nile-txt-secondary);
     font-size: 0.9rem;
     margin: 0;
+    padding-bottom: var(--nile-s-6);
   }
 
   /* ⑥ Live now */
