@@ -1506,17 +1506,43 @@ const appealNoticeLabel = (n: AppealRow["moderation_notices"]) => {
     : `${n.action === "remove_content" ? "Removed" : "Restored"} ${what}`;
 };
 
-// ── admin management (manage-admins fn, migration 0055) ─────────────────────
-type AdminEntry = { user_id: string; email: string; created_at: string };
+// ── admin management (manage-admins fn, migrations 0055 + 0126) ─────────────
+// 0126 split admins into two tiers and put admin changes behind four eyes: a
+// super admin PROPOSES, a DIFFERENT super admin approves. Ordinary admins keep
+// every operational power and lose only the ability to change this list —
+// that's the one power that can be used to keep all the others.
+//
+// The single-super-admin case applies immediately and says so; there is nobody
+// who could approve, and pretending otherwise would just deadlock the screen.
+type AdminRole = "admin" | "super_admin";
+type AdminEntry = {
+  user_id: string; email: string; created_at: string; role: AdminRole;
+};
 type AdminAuditEntry = {
-  actor_email: string; action: "added" | "removed";
+  actor_email: string | null;
+  action: "added" | "removed" | "promoted" | "demoted" | "proposed" | "rejected";
   target_email: string | null; created_at: string;
+};
+type AdminRequest = {
+  id: string; action: "add" | "remove" | "promote" | "demote";
+  target_user_id: string | null; target_email: string; reason: string | null;
+  requested_by: string | null; requested_by_email: string | null;
+  status: "pending" | "applied" | "rejected" | "cancelled" | "expired";
+  decided_by_email: string | null; decided_at: string | null;
+  unilateral: boolean; created_at: string; expires_at: string;
+  can_decide: boolean;
 };
 const adminsList = ref<AdminEntry[]>([]);
 const adminsAudit = ref<AdminAuditEntry[]>([]);
+const adminRequests = ref<AdminRequest[]>([]);
 const myUserId = ref("");
+const myAdminRole = ref<AdminRole>("admin");
+const isSuperAdmin = computed(() => myAdminRole.value === "super_admin");
+const pendingRequests = computed(() =>
+  adminRequests.value.filter((r) => r.status === "pending"));
 const newAdminEmail = ref("");
-const adminsBusy = ref(""); // "add" while adding, or the user_id being removed
+const newAdminReason = ref("");
+const adminsBusy = ref(""); // "add", or the user_id / request id being acted on
 const adminsNotice = ref(""); // inline success message
 
 async function callManageAdmins(body: Record<string, unknown>) {
@@ -1535,6 +1561,8 @@ async function reloadAdmins() {
   const out = await callManageAdmins({ action: "list" });
   adminsList.value = out.admins ?? [];
   adminsAudit.value = out.audit ?? [];
+  adminRequests.value = out.requests ?? [];
+  myAdminRole.value = out.me?.role ?? "admin";
 }
 
 async function openAdmins() {
@@ -1552,14 +1580,29 @@ async function openAdmins() {
   view.value = "admins";
 }
 
-async function addAdmin() {
+// One entry point for all four changes. The server decides whether this
+// becomes a pending proposal or applies at once (single super admin), and says
+// which — the UI shouldn't try to predict it and then disagree.
+async function proposeAdminChange(
+  change: "add" | "remove" | "promote" | "demote",
+  opts: { email?: string; user_id?: string; label: string; busyKey: string },
+) {
   msg.value = "";
   adminsNotice.value = "";
-  adminsBusy.value = "add";
+  adminsBusy.value = opts.busyKey;
   try {
-    const out = await callManageAdmins({ action: "add", email: newAdminEmail.value });
-    adminsNotice.value = `${out.added?.email ?? newAdminEmail.value.trim()} is now an admin.`;
-    newAdminEmail.value = "";
+    const out = await callManageAdmins({
+      action: "propose",
+      change,
+      email: opts.email,
+      user_id: opts.user_id,
+      reason: newAdminReason.value.trim() || undefined,
+    });
+    adminsNotice.value = out.applied
+      ? `${opts.label} — done. ${out.note ?? ""}`.trim()
+      : `${opts.label} — proposed. It takes effect once another super admin approves it.`;
+    if (change === "add") newAdminEmail.value = "";
+    newAdminReason.value = "";
     await reloadAdmins();
   } catch (e: any) {
     msg.value = String(e?.message || e);
@@ -1568,14 +1611,53 @@ async function addAdmin() {
   }
 }
 
-async function removeAdmin(a: AdminEntry) {
-  if (!confirm(`Remove ${a.email} as an admin? They lose access to the admin views immediately.`)) return;
+const addAdmin = () =>
+  proposeAdminChange("add", {
+    email: newAdminEmail.value,
+    label: `Add ${newAdminEmail.value.trim()} as an admin`,
+    busyKey: "add",
+  });
+
+function removeAdmin(a: AdminEntry) {
+  if (!confirm(`Propose removing ${a.email} as an admin?`)) return;
+  return proposeAdminChange("remove", {
+    user_id: a.user_id,
+    label: `Remove ${a.email}`,
+    busyKey: a.user_id,
+  });
+}
+
+function setAdminRole(a: AdminEntry, to: AdminRole) {
+  const verb = to === "super_admin" ? "promote" : "demote";
+  if (!confirm(
+    to === "super_admin"
+      ? `Make ${a.email} a super admin? They'll be able to propose and approve admin changes.`
+      : `Demote ${a.email} to an ordinary admin? They keep moderation and ad review, but can no longer change who is an admin.`,
+  )) return;
+  return proposeAdminChange(verb, {
+    user_id: a.user_id,
+    label: `${to === "super_admin" ? "Promote" : "Demote"} ${a.email}`,
+    busyKey: a.user_id,
+  });
+}
+
+async function decideAdminRequest(
+  r: AdminRequest,
+  verdict: "approve" | "reject" | "cancel",
+) {
+  if (verdict !== "cancel" && !confirm(
+    `${verdict === "approve" ? "Approve" : "Reject"}: ${adminRequestLabel(r)}?`,
+  )) return;
   msg.value = "";
   adminsNotice.value = "";
-  adminsBusy.value = a.user_id;
+  adminsBusy.value = r.id;
   try {
-    await callManageAdmins({ action: "remove", user_id: a.user_id });
-    adminsNotice.value = `${a.email} is no longer an admin.`;
+    await callManageAdmins({ action: verdict, request_id: r.id });
+    adminsNotice.value = {
+      approve: "Approved and applied.",
+      reject: "Rejected.",
+      cancel: "Request withdrawn.",
+    }[verdict];
     await reloadAdmins();
   } catch (e: any) {
     msg.value = String(e?.message || e);
@@ -1583,6 +1665,18 @@ async function removeAdmin(a: AdminEntry) {
     adminsBusy.value = "";
   }
 }
+
+const adminRequestLabel = (r: AdminRequest) => ({
+  add: `add ${r.target_email} as an admin`,
+  remove: `remove ${r.target_email}`,
+  promote: `make ${r.target_email} a super admin`,
+  demote: `demote ${r.target_email} to ordinary admin`,
+}[r.action]);
+
+const ADMIN_AUDIT_VERBS: Record<AdminAuditEntry["action"], string> = {
+  added: "added", removed: "removed", promoted: "promoted",
+  demoted: "demoted", proposed: "proposed a change to", rejected: "rejected a change to",
+};
 
 const fmtDateTime = (s: string) =>
   new Date(s).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
@@ -2865,39 +2959,95 @@ const activeTab = computed(() => (view.value === "build" ? "dash" : view.value))
         <div>
           <h2 class="ap-h" style="margin:0">Admins</h2>
           <p class="ap-sub">
-            {{ adminsList.length }} admin{{ adminsList.length === 1 ? '' : 's' }}:
-            everyone here can review ads, moderate reports, and manage this list
+            {{ adminsList.length }} admin{{ adminsList.length === 1 ? '' : 's' }}.
+            Every admin can review ads, moderate reports and curate featured.
+            Only a <b>super admin</b> can change who is on this list — and a
+            second super admin has to approve it.
           </p>
         </div>
       </div>
 
       <div v-if="adminsNotice" class="ap-msg ap-ok">{{ adminsNotice }}</div>
 
-      <form class="ap-addrow" @submit.prevent="addAdmin">
+      <!-- Waiting on someone else. Shown above everything: an admin change
+           sitting unapproved is the most time-sensitive thing on this screen. -->
+      <section v-if="pendingRequests.length" class="ap-pending">
+        <h3 class="ap-rh" style="margin-top:0">Awaiting approval</h3>
+        <div v-for="r in pendingRequests" :key="r.id" class="ap-pending-row">
+          <div>
+            <b>{{ adminRequestLabel(r) }}</b>
+            <div class="ap-note-inline">
+              Proposed by {{ r.requested_by_email ?? 'a former admin' }} ·
+              {{ fmtDateTime(r.created_at) }} · expires {{ fmtDate(r.expires_at) }}
+              <template v-if="r.reason"><br />“{{ r.reason }}”</template>
+            </div>
+          </div>
+          <div class="ap-rowactions">
+            <template v-if="r.can_decide && isSuperAdmin">
+              <button class="ap-link" :disabled="!!adminsBusy" @click="decideAdminRequest(r, 'approve')">
+                {{ adminsBusy === r.id ? 'Working…' : 'Approve' }}
+              </button>
+              <button class="ap-link ap-danger" :disabled="!!adminsBusy" @click="decideAdminRequest(r, 'reject')">Reject</button>
+            </template>
+            <template v-else-if="r.requested_by === myUserId">
+              <span class="ap-rmeta" style="margin:0">Yours — another super admin has to approve</span>
+              <button class="ap-link ap-danger" :disabled="!!adminsBusy" @click="decideAdminRequest(r, 'cancel')">Withdraw</button>
+            </template>
+            <span v-else class="ap-rmeta" style="margin:0">Super admins only</span>
+          </div>
+        </div>
+      </section>
+
+      <form v-if="isSuperAdmin" class="ap-addrow" @submit.prevent="addAdmin">
         <input
           class="ap-input" v-model="newAdminEmail" type="email" required
           placeholder="name@example.com (must already have a Nile account)"
         />
+        <input
+          class="ap-input" v-model="newAdminReason" type="text" maxlength="200"
+          placeholder="Why? (optional — the approver sees this)"
+        />
         <button class="nile-btn nile-btn--primary" type="submit" :disabled="!!adminsBusy">
-          {{ adminsBusy === 'add' ? 'Adding…' : 'Add admin' }}
+          {{ adminsBusy === 'add' ? 'Working…' : 'Propose admin' }}
         </button>
       </form>
+      <p v-else class="ap-sub">
+        You're an ordinary admin, so you can't change this list. Ask a super
+        admin (marked below) to propose it.
+      </p>
 
       <table class="ap-tbl ap-tbl--cards">
-        <thead><tr><th>Email</th><th>Added</th><th></th></tr></thead>
+        <thead><tr><th>Email</th><th>Role</th><th>Added</th><th></th></tr></thead>
         <tbody>
           <tr v-for="a in adminsList" :key="a.user_id">
             <td class="name" data-label="Email">
               {{ a.email }} <span v-if="a.user_id === myUserId" class="ap-badge ok">You</span>
             </td>
+            <td data-label="Role">
+              <span class="ap-badge" :class="a.role === 'super_admin' ? 'ok' : ''">
+                {{ a.role === 'super_admin' ? 'Super admin' : 'Admin' }}
+              </span>
+            </td>
             <td data-label="Added">{{ fmtDate(a.created_at) }}</td>
             <td class="ap-rowactions">
-              <button
-                v-if="a.user_id !== myUserId"
-                class="ap-link ap-danger" :disabled="!!adminsBusy || adminsList.length <= 1"
-                @click="removeAdmin(a)"
-              >{{ adminsBusy === a.user_id ? 'Removing…' : 'Remove' }}</button>
-              <span v-else class="ap-rmeta" style="margin:0">Ask another admin to remove you</span>
+              <template v-if="isSuperAdmin">
+                <button
+                  v-if="a.role === 'admin'"
+                  class="ap-link" :disabled="!!adminsBusy"
+                  @click="setAdminRole(a, 'super_admin')"
+                >Make super admin</button>
+                <button
+                  v-else-if="a.user_id !== myUserId"
+                  class="ap-link" :disabled="!!adminsBusy"
+                  @click="setAdminRole(a, 'admin')"
+                >Demote</button>
+                <button
+                  v-if="a.user_id !== myUserId"
+                  class="ap-link ap-danger" :disabled="!!adminsBusy || adminsList.length <= 1"
+                  @click="removeAdmin(a)"
+                >{{ adminsBusy === a.user_id ? 'Working…' : 'Remove' }}</button>
+                <span v-else class="ap-rmeta" style="margin:0">Ask another super admin to remove you</span>
+              </template>
             </td>
           </tr>
         </tbody>
@@ -2906,7 +3056,9 @@ const activeTab = computed(() => (view.value === "build" ? "dash" : view.value))
       <template v-if="adminsAudit.length">
         <h3 class="ap-rh" style="margin-top: var(--nile-s-8)">Recent activity</h3>
         <p v-for="(e, i) in adminsAudit" :key="i" class="ap-audit">
-          <b>{{ e.actor_email }}</b> {{ e.action }} <b>{{ e.target_email ?? 'unknown' }}</b>
+          <b>{{ e.actor_email ?? 'a deleted account' }}</b>
+          {{ ADMIN_AUDIT_VERBS[e.action] ?? e.action }}
+          <b>{{ e.target_email ?? 'unknown' }}</b>
           <span class="ap-audit-when">{{ fmtDateTime(e.created_at) }}</span>
         </p>
       </template>
@@ -3351,6 +3503,15 @@ const activeTab = computed(() => (view.value === "build" ? "dash" : view.value))
 .ap-chart-svg .ln.clk { stroke: var(--nile-coral); }
 .ap-chart-axis { display: flex; justify-content: space-between; margin-top: 4px;
   font-size: 11px; color: var(--nile-txt-tertiary); }
+/* Pending admin changes. Bordered rather than plain rows because this block
+   is a request for someone's attention, not a list they're browsing. */
+.ap-pending { margin: 0 0 var(--nile-s-6); padding: var(--nile-s-4);
+  border: 1px solid var(--nile-border); border-radius: var(--nile-r-md);
+  background: var(--nile-bg-raised); }
+.ap-pending-row { display: flex; flex-wrap: wrap; gap: var(--nile-s-4);
+  align-items: flex-start; justify-content: space-between;
+  padding: var(--nile-s-3) 0; border-top: 1px solid var(--nile-border); }
+.ap-pending-row:first-of-type { border-top: none; padding-top: 0; }
 .ap-placements { margin: 0 0 var(--nile-s-6); }
 .ap-placements h3 { display: flex; align-items: baseline; gap: var(--nile-s-2);
   margin: 0 0 var(--nile-s-2); font-size: 15px; }
