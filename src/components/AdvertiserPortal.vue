@@ -65,6 +65,12 @@ type Topic = { id: string; name: string };
 type Row = {
   campaign_id: string; name: string; headline: string | null; status: string;
   budget_cents: number; spent_cents: number; impressions: number; clicks: number;
+  // 0125. reach is distinct viewers, so frequency = impressions / reach tells
+  // you whether a big impression count was breadth or repetition. The three
+  // derived figures are null (not 0) until there is something to divide by —
+  // "no clicks yet" and "$0.00 per click" are very different claims.
+  reach: number; frequency: number | null;
+  ecpm_cents: number | null; ecpc_cents: number | null;
   review_note: string | null; created_at: string;
   placement: string | null; event_title: string | null; event_scheduled_at: string | null;
   // Offer fields (sponsorships only). host_note is the host's own comment on a
@@ -86,7 +92,14 @@ type SponsEvent = {
 type PriceSuggestion = {
   suggested_cents: number; low_cents: number; high_cents: number; basis: string;
 };
-type DailyPoint = { day: string; impressions: number; clicks: number };
+type DailyPoint = { day: string; impressions: number; clicks: number; reach: number };
+// get_advertiser_placement_summary (0125). A campaign has exactly one
+// placement, so this is a breakdown across campaigns — the answer to "which
+// surface is actually working for us".
+type PlacementRow = {
+  placement: string; campaigns: number; impressions: number; clicks: number;
+  reach: number; spent_cents: number; ecpm_cents: number | null;
+};
 
 const PAGE = 15; // keyset page size (mirrors the app's Paged<T> convention)
 
@@ -127,6 +140,7 @@ const dashHasMore = ref(false);
 const loadingMore = ref(false);
 const daily = ref<DailyPoint[]>([]);
 const dailyCampaignId = ref<string | null>(null); // null = all campaigns
+const placements = ref<PlacementRow[]>([]);
 const exportingCampaigns = ref(false);
 
 // builder (create + edit-while-in-review)
@@ -521,10 +535,12 @@ async function openDashboard() {
   view.value = "loading";
   dailyCampaignId.value = null;
   const acct = account.value!.id;
-  const [{ data, error }, { data: dly }] = await Promise.all([
+  const [{ data, error }, { data: dly }, { data: plc }] = await Promise.all([
     sb.rpc("get_advertiser_performance", { p_account_id: acct, p_limit: PAGE }),
     sb.rpc("get_advertiser_daily", { p_account_id: acct }),
+    sb.rpc("get_advertiser_placement_summary", { p_account_id: acct }),
   ]);
+  placements.value = (plc as PlacementRow[]) ?? [];
   if (error) msg.value = error.message;
   const page = (data as Row[]) ?? [];
   rows.value = page;
@@ -624,10 +640,15 @@ async function exportCampaignsCsv() {
       cursor = page[page.length - 1].created_at;
     }
     all = all.slice(0, CAP);
-    const header = ["Campaign", "Status", "Budget", "Spent", "Impressions", "Clicks", "CTR", "Created"];
+    const header = [
+      "Campaign", "Status", "Budget", "Spent", "Impressions", "Reach",
+      "Frequency", "Clicks", "CTR", "eCPM", "eCPC", "Created",
+    ];
     const body = all.map((r) => [
       r.headline || r.name, sponsorStatusLabel(r), money(r.budget_cents), money(r.spent_cents),
-      r.impressions, r.clicks, ctr(r), new Date(r.created_at).toLocaleDateString(),
+      r.impressions, r.reach, freq(r), r.clicks, ctr(r),
+      dashIfNull(r.ecpm_cents), dashIfNull(r.ecpc_cents),
+      new Date(r.created_at).toLocaleDateString(),
     ]);
     downloadCsv(`nile-ads-campaigns.csv`, [header, ...body]);
   } catch (e: any) {
@@ -640,8 +661,8 @@ async function exportCampaignsCsv() {
 // filtered one from filterDaily) — no extra fetch needed.
 function exportDailyCsv() {
   if (!daily.value.length) return;
-  const header = ["Date", "Impressions", "Clicks"];
-  const body = daily.value.map((p) => [p.day, p.impressions, p.clicks]);
+  const header = ["Date", "Impressions", "Reach", "Clicks"];
+  const body = daily.value.map((p) => [p.day, p.impressions, p.reach, p.clicks]);
   downloadCsv(dailyCampaignId.value ? "nile-ads-daily-campaign.csv" : "nile-ads-daily.csv", [header, ...body]);
 }
 // Withdraw (hard-delete) an in-review or rejected ad. Server-side: the
@@ -775,6 +796,15 @@ const money = (c: number) => `$${(c / 100).toFixed(2)}`;
 // "$45.00", and every offer amount the advertiser types is a round number.
 const moneyShort = (c: number) => (c % 100 === 0 ? `$${c / 100}` : money(c));
 const ctr = (r: Row) => (r.impressions ? ((r.clicks / r.impressions) * 100).toFixed(1) : "0.0") + "%";
+// An em dash, not "$0.00" — a campaign with no clicks has no cost per click,
+// and printing zero reads as "free clicks" on the one screen where an
+// advertiser is deciding whether to spend again.
+const dashIfNull = (c: number | null) => (c == null ? "—" : money(c));
+const freq = (r: { frequency: number | null }) => (r.frequency == null ? "—" : `${r.frequency}×`);
+const PLACEMENT_LABELS: Record<string, string> = {
+  feed: "In feed", currents: "Currents", lobby: "Event sponsorship",
+};
+const placementLabel = (p: string) => PLACEMENT_LABELS[p] ?? p;
 // Sponsorship statuses describe an offer, not a purchase: nothing here should
 // imply money moved before the host accepted.
 function statusLabel(s: string, placement?: string | null) {
@@ -2082,13 +2112,44 @@ const activeTab = computed(() => (view.value === "build" ? "dash" : view.value))
         </figcaption>
       </figure>
 
+      <!-- Where the money went. A campaign carries one placement, so this is a
+           breakdown across campaigns — the "which surface is working" view a
+           renewal decision actually turns on. Hidden until there's more than
+           one placement to compare, when the table would just repeat the
+           campaign list. -->
+      <section v-if="placements.length > 1" class="ap-placements">
+        <h3>By placement <span class="ap-note-inline">last 30 days</span></h3>
+        <table class="ap-tbl ap-tbl--cards">
+          <thead>
+            <tr><th>Placement</th><th>Campaigns</th><th>Impr.</th><th>Reach</th><th>Clicks</th><th>eCPM</th><th>Spent</th></tr>
+          </thead>
+          <tbody>
+            <tr v-for="p in placements" :key="p.placement">
+              <td class="name" data-label="Placement">{{ placementLabel(p.placement) }}</td>
+              <td data-label="Campaigns">{{ p.campaigns }}</td>
+              <td data-label="Impr.">{{ p.impressions }}</td>
+              <td data-label="Reach">{{ p.reach }}</td>
+              <td data-label="Clicks">{{ p.clicks }}</td>
+              <td data-label="eCPM">{{ dashIfNull(p.ecpm_cents) }}</td>
+              <td data-label="Spent">{{ money(p.spent_cents) }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
       <p v-if="rows.length === 0" class="ap-center">
         No campaigns yet. Create your first to start reaching Nile audiences.
       </p>
       <template v-else>
         <table class="ap-tbl ap-tbl--cards">
           <thead>
-            <tr><th>Campaign</th><th>Status</th><th>Impr.</th><th>Clicks</th><th>CTR</th><th>Spent</th><th></th></tr>
+            <tr>
+              <th>Campaign</th><th>Status</th><th>Impr.</th>
+              <th title="Distinct people reached, and how many times the average one saw it">Reach</th>
+              <th>Clicks</th><th>CTR</th>
+              <th title="Cost per thousand impressions, and cost per click">eCPM</th>
+              <th>Spent</th><th></th>
+            </tr>
           </thead>
           <tbody>
             <tr v-for="r in rows" :key="r.campaign_id" :class="{ 'ap-row-selected': dailyCampaignId === r.campaign_id }">
@@ -2132,8 +2193,16 @@ const activeTab = computed(() => (view.value === "build" ? "dash" : view.value))
               </td>
               <td data-label="Status"><span class="ap-badge" :class="statusClass(r.status)">{{ sponsorStatusLabel(r) }}</span></td>
               <td data-label="Impr.">{{ r.impressions }}</td>
+              <td data-label="Reach">
+                {{ r.reach }}
+                <div class="ap-note-inline">{{ freq(r) }} each</div>
+              </td>
               <td data-label="Clicks">{{ r.clicks }}</td>
               <td data-label="CTR">{{ ctr(r) }}</td>
+              <td data-label="eCPM">
+                {{ dashIfNull(r.ecpm_cents) }}
+                <div class="ap-note-inline">{{ dashIfNull(r.ecpc_cents) }} / click</div>
+              </td>
               <td data-label="Spent">{{ money(r.spent_cents) }} / {{ money(r.budget_cents) }}</td>
               <td class="ap-rowactions">
                 <button
@@ -3282,6 +3351,10 @@ const activeTab = computed(() => (view.value === "build" ? "dash" : view.value))
 .ap-chart-svg .ln.clk { stroke: var(--nile-coral); }
 .ap-chart-axis { display: flex; justify-content: space-between; margin-top: 4px;
   font-size: 11px; color: var(--nile-txt-tertiary); }
+.ap-placements { margin: 0 0 var(--nile-s-6); }
+.ap-placements h3 { display: flex; align-items: baseline; gap: var(--nile-s-2);
+  margin: 0 0 var(--nile-s-2); font-size: 15px; }
+.ap-placements h3 .ap-note-inline { margin-top: 0; }
 
 /* ── Responsive: tablets & below (≤760px) ────────────────────────────────────
    The 7-column tables get cramped well before phone widths, so collapse them
