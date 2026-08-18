@@ -6,6 +6,9 @@ const title = "Live Stream Your Concert & Sell Tickets | For Musicians | Nile";
 const description =
   "Sell virtual tickets to your live shows. Stream multiple camera angles (fretboard, drum overhead, wide stage) from phones, and earn from the gig and the replay.";
 
+// Used only by the Proof section, which is commented out below until we have
+// real testimonials and ticket-sales figures.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const proofShows = [
   {
     label: "late-night set",
@@ -138,6 +141,8 @@ const proofShows = [
     <div class="nile-container vod-grid">
       <ImageSlot
         label="replay player"
+        src="/img/app-replay-player.jpg"
+        alt="A Nile replay playing on demand, with the show title and a scrub bar"
         radius="lg"
         ratio="16 / 9"
         class="vod-visual"
@@ -188,7 +193,8 @@ const proofShows = [
     </div>
   </section>
 
-  <!-- PROOF -->
+  {/* PROOF — hidden until we have a real artist testimonial and real
+      ticket-sales figures to run here. Restore by deleting this comment wrapper.
   <section class="band nile-section">
     <div class="nile-container">
       <div class="centered-head">
@@ -232,6 +238,7 @@ const proofShows = [
       </div>
     </div>
   </section>
+  */}
 
   <!-- CLOSING CTA -->
   <section class="closing nile-section">

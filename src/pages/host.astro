@@ -30,6 +30,9 @@ const steps = [
   },
 ];
 
+// Used only by the Proof section, which is commented out below until we have
+// real testimonials and earnings figures.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const proofShows = [
   {
     label: "set",
@@ -185,6 +188,8 @@ const proofShows = [
     <div class="nile-container vod-grid">
       <ImageSlot
         label="replay player"
+        src="/img/app-replay-player.jpg"
+        alt="A Nile replay playing on demand, with the show title and a scrub bar"
         radius="lg"
         ratio="16 / 9"
         class="vod-visual"
@@ -210,7 +215,8 @@ const proofShows = [
     </div>
   </section>
 
-  <!-- ⑦ PROOF -->
+  {/* ⑦ PROOF — hidden until we have a real host testimonial and real earnings
+      figures to run here. Restore by deleting this comment wrapper.
   <section class="band nile-section">
     <div class="nile-container">
       <div class="centered-head">
@@ -254,6 +260,7 @@ const proofShows = [
       </div>
     </div>
   </section>
+  */}
 
   <!-- ⑧ RELIABILITY -->
   <section class="nile-section reliability">
