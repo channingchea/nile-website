@@ -8,13 +8,23 @@ import sitemap from "@astrojs/sitemap";
 export default defineConfig({
   site: "https://joinnile.com",
   output: "static",
-  // /auth/* are transient post-click landings (noindex) — keep them out of the
-  // sitemap. /download is noindex too, until the Mac app clears internal
-  // testing; drop it from this filter when the page goes into the nav.
+  // Keep every page that carries a <meta name="robots" content="noindex">
+  // tag out of the sitemap too — submitting a page you've told Google not to
+  // index sends a mixed signal. /download is noindex until the Mac app
+  // clears internal testing; drop it from this list when the page goes into
+  // the nav (and remove its noindex tag at the same time).
   integrations: [
     vue(),
     sitemap({
-      filter: (page) => !page.includes("/auth/") && !page.includes("/download"),
+      filter: (page) =>
+        ![
+          "/auth/",
+          "/download",
+          "/advertise/portal",
+          "/boost",
+          "/tip",
+          "/tip-success",
+        ].some((noindexPath) => page.includes(noindexPath)),
     }),
   ],
   vite: {
