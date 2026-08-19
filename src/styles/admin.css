@@ -1,0 +1,124 @@
+/* Nile staff admin portal (/admin) — the shell only.
+   Cards, tables, badges and modals inside the panels come from portal.css.
+   Nothing here restyles an .ap-* rule's appearance; the few .ap-* selectors
+   below are scoped under .ad-main and only widen or enlarge, so editing this
+   file cannot reach the advertiser portal. */
+
+.ad-shell {
+  display: grid;
+  grid-template-columns: 236px minmax(0, 1fr);
+  gap: var(--nile-s-8);
+  align-items: start;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: var(--nile-s-6) var(--nile-s-6) var(--nile-s-20);
+  font-family: var(--nile-font-body);
+  color: var(--nile-txt-primary);
+}
+/* Signed-out / denied / booting: no sidebar to sit beside, so one column. */
+.ad-shell--bare { grid-template-columns: minmax(0, 1fr); max-width: 560px; padding-top: var(--nile-s-16); }
+
+/* ── sidebar ──────────────────────────────────────────────────────────── */
+.ad-side { position: sticky; top: var(--nile-s-6); display: flex; flex-direction: column;
+  gap: var(--nile-s-6); min-width: 0; }
+.ad-mark { display: flex; align-items: baseline; gap: var(--nile-s-2); }
+.ad-mark b { font-family: var(--nile-font-display); font-size: 20px; }
+.ad-mark span { font-size: 11px; font-weight: 600; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--nile-volt); }
+.ad-group + .ad-group { margin-top: var(--nile-s-4); }
+.ad-group-h { font-size: 11px; font-weight: 600; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--nile-txt-tertiary);
+  margin: 0 0 var(--nile-s-2); padding-left: 12px; }
+.ad-nav { display: flex; flex-direction: column; gap: 2px; }
+.ad-nav a {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--nile-s-2);
+  min-height: 44px; padding: 10px 12px; border: 1px solid transparent;
+  border-radius: var(--nile-r-md); color: var(--nile-txt-secondary);
+  font-size: 14px; font-weight: 600; text-decoration: none;
+  transition: background .15s, color .15s;
+}
+.ad-nav a:hover { background: var(--nile-bg-raised); color: var(--nile-txt-primary); text-decoration: none; }
+.ad-nav a.is-active { background: var(--nile-bg-surface); border-color: var(--nile-border);
+  color: var(--nile-txt-primary); }
+.ad-count { flex: none; background: rgba(200, 255, 0, 0.14); color: var(--nile-volt);
+  border-radius: var(--nile-r-pill); padding: 1px 8px; font-size: 11px; font-weight: 700; }
+.ad-side-foot { display: flex; flex-direction: column; align-items: flex-start;
+  gap: var(--nile-s-2); padding-top: var(--nile-s-4);
+  border-top: 1px solid var(--nile-border); font-size: 13px; color: var(--nile-txt-tertiary); }
+.ad-side-foot .ap-link { font-size: 13px; }
+.ad-who { overflow-wrap: anywhere; }
+
+/* ── main column ──────────────────────────────────────────────────────── */
+/* portal.css caps cards at 520/880px for the advertiser's narrow forms; a
+   moderation table wants the whole column. */
+.ad-main { min-width: 0; }
+.ad-main .ap, .ad-main .ap-card, .ad-main .ap-wide { max-width: none; }
+
+/* ── overview home ────────────────────────────────────────────────────── */
+.ad-asof { display: flex; align-items: center; flex-wrap: wrap; gap: var(--nile-s-3);
+  margin: 0 0 var(--nile-s-5); font-size: 12px; color: var(--nile-txt-tertiary); }
+.ad-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(148px, 1fr));
+  gap: var(--nile-s-4); margin-bottom: var(--nile-s-8); }
+.ad-tile { display: block; padding: var(--nile-s-5); background: var(--nile-bg-surface);
+  border: 1px solid var(--nile-border); border-radius: var(--nile-r-md);
+  color: var(--nile-txt-primary); text-decoration: none; transition: border-color .15s; }
+.ad-tile:hover { border-color: var(--nile-border-strong); text-decoration: none; }
+.ad-tile b { display: block; font-family: var(--nile-font-display); font-size: 30px; line-height: 1.1;
+  font-variant-numeric: tabular-nums; }
+/* Only a queue with something in it earns the accent — if every tile glows,
+   none of them is telling you where to go next. */
+.ad-tile.has-work b { color: var(--nile-volt); }
+.ad-tile span { display: block; margin-top: 4px; font-size: 13px; color: var(--nile-txt-secondary); }
+/* align-items: start, or every card stretches to match Money's nine rows and
+   the page reads as three mostly-empty boxes. (CSS columns pack tighter in
+   theory; in practice the balancer leaves a whole empty track here.) */
+.ad-statgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(248px, 1fr));
+  gap: var(--nile-s-4); align-items: start; }
+.ad-statcard { padding: var(--nile-s-5); border: 1px solid var(--nile-border);
+  border-radius: var(--nile-r-md); }
+.ad-statcard h3 { margin: 0 0 var(--nile-s-3); font-family: var(--nile-font-body);
+  font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--nile-txt-tertiary); }
+.ad-stat { display: flex; align-items: baseline; justify-content: space-between;
+  gap: var(--nile-s-4); padding: 7px 0; border-top: 1px solid var(--nile-border);
+  font-size: 14px; color: var(--nile-txt-secondary); }
+.ad-stat:first-of-type { border-top: none; }
+.ad-stat b { flex: none; color: var(--nile-txt-primary); font-weight: 600;
+  font-variant-numeric: tabular-nums; }
+/* A 4:3 creative at full column width is a ~900px-tall image to scroll past
+   for every ad in the queue. Big enough to judge is big enough. */
+.ad-main .ap-review .ap-preview { max-width: 420px; }
+.ad-skel { height: 92px; border: 1px solid var(--nile-border); border-radius: var(--nile-r-md);
+  background: var(--nile-bg-surface); opacity: 0.5; }
+
+/* ── responsive: sidebar becomes a scrolling top bar ──────────────────── */
+@media (max-width: 900px) {
+  .ad-shell { grid-template-columns: minmax(0, 1fr); gap: var(--nile-s-5);
+    padding: var(--nile-s-4) var(--nile-s-4) var(--nile-s-16); }
+  .ad-side { position: static; gap: var(--nile-s-4); }
+  .ad-groups { display: flex; gap: var(--nile-s-4); overflow-x: auto;
+    scrollbar-width: none; padding-bottom: 2px; }
+  .ad-groups::-webkit-scrollbar { display: none; }
+  .ad-group + .ad-group { margin-top: 0; }
+  .ad-group-h { display: none; }
+  .ad-nav { flex-direction: row; gap: var(--nile-s-2); }
+  .ad-nav a { white-space: nowrap; padding: 10px 14px; }
+  .ad-side-foot { flex-direction: row; flex-wrap: wrap; align-items: center; gap: var(--nile-s-4); }
+}
+
+/* Below the point where portal.css reflows tables into stacked cards, every
+   row action becomes a real touch target rather than a 14px underlined word. */
+@media (max-width: 760px) {
+  .ad-main .ap-rowactions .ap-link,
+  .ad-main .ap-rbtns .ap-link {
+    display: inline-flex; align-items: center; min-height: 44px;
+  }
+}
+
+@media (max-width: 480px) {
+  .ad-tiles, .ad-statgrid { grid-template-columns: 1fr; }
+}
+
+/* An <a> wearing .nile-btn .ap-full: the button is inline-flex, so the label
+   needs centering that a real <button> gets for free. */
+.ad-cta { justify-content: center; margin-top: var(--nile-s-5); }

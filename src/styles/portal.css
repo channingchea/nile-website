@@ -1,0 +1,321 @@
+/* Portal chrome (.ap-*) — shared by the advertiser portal (AdvertiserPortal.vue)
+   and the staff admin portal (AdminPortal.vue).
+
+   Lifted verbatim out of AdvertiserPortal.vue's <style scoped> so both portals
+   render the same cards, tables, badges and modals. Class names are unchanged.
+   The only edit was scoping the two bare `.dot` rules under .ap-chart-legend —
+   `scoped` used to do that for us and this file is global.
+
+   Imported from the .astro pages rather than the Vue components, so it ships as
+   a stylesheet instead of riding inside a client:only island's JS. */
+
+/* Wrapper is wide enough for the dashboard/admin tables; narrow forms (auth,
+   setup, builder) stay capped + centered via .ap-card below. */
+.ap { max-width: 880px; margin: 0 auto; font-family: var(--nile-font-body); color: var(--nile-txt-primary); }
+.ap-card { background: var(--nile-bg-surface); border: 1px solid var(--nile-border);
+  border-radius: var(--nile-r-lg); padding: var(--nile-s-8);
+  max-width: 520px; margin-left: auto; margin-right: auto; }
+.ap-wide { max-width: 880px; }
+.ap-h { font-family: var(--nile-font-display); font-size: 24px; margin: 0 0 var(--nile-s-5); letter-spacing: -0.01em; }
+.ap-sub { color: var(--nile-txt-secondary); font-size: 14px; margin: 4px 0 0; }
+.ap-label { display: block; font-size: 12px; color: var(--nile-txt-secondary);
+  text-transform: uppercase; letter-spacing: 0.04em; margin: 0 0 var(--nile-s-2); }
+.ap-input {
+  width: 100%; background: var(--nile-bg-raised); border: 1px solid var(--nile-border);
+  color: var(--nile-txt-primary); border-radius: var(--nile-r-md); padding: 13px;
+  font-size: 15px; margin-bottom: var(--nile-s-3); font-family: inherit;
+}
+.ap-textarea { resize: vertical; min-height: 84px; }
+.ap-full { width: 100%; margin-top: var(--nile-s-2); }
+.ap-new { display: inline-block; width: auto; margin-bottom: var(--nile-s-6); }
+.ap-new-row { display: flex; align-items: center; gap: var(--nile-s-5); margin-bottom: var(--nile-s-6); }
+.ap-new-row .ap-new { margin-bottom: 0; }
+.ap-link { background: none; border: none; color: var(--nile-txt-secondary);
+  cursor: pointer; font-size: 14px; text-decoration: underline; padding: 0; font-family: inherit; }
+.ap-note { color: var(--nile-txt-tertiary); font-size: 12px; text-align: center;
+  margin-top: var(--nile-s-4); line-height: 1.5; }
+.ap-msg { padding: 13px 15px; border-radius: var(--nile-r-md); font-size: 14px; margin-bottom: var(--nile-s-4); }
+.ap-err { background: rgba(239, 68, 68, 0.12); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.3); }
+.ap-ok { background: rgba(200, 255, 0, 0.1); color: var(--nile-volt); border: 1px solid rgba(200, 255, 0, 0.3); }
+.ap-center { text-align: center; color: var(--nile-txt-secondary); padding: 48px 0; }
+.ap-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: var(--nile-s-6); }
+
+.ap-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: var(--nile-s-6); }
+.ap-opt {
+  background: var(--nile-bg-raised); border: 1px solid var(--nile-border);
+  border-radius: var(--nile-r-md); padding: 15px 8px; text-align: center; cursor: pointer;
+  font-size: 16px; font-weight: 600; color: var(--nile-txt-primary); font-family: inherit;
+  transition: border-color .15s, background .15s;
+}
+.ap-opt[aria-selected='true'] { border-color: var(--nile-volt); background: rgba(200, 255, 0, 0.08); }
+
+/* Sponsorship event picker (0079) */
+.ap-spons-list {
+  display: flex; flex-direction: column; gap: 8px; margin-bottom: var(--nile-s-6);
+  max-height: 340px; overflow-y: auto;
+}
+.ap-spons-row {
+  display: flex; align-items: center; gap: 12px; text-align: left; width: 100%;
+  background: var(--nile-bg-raised); border: 1px solid var(--nile-border);
+  border-radius: var(--nile-r-md); padding: 10px; cursor: pointer;
+  color: var(--nile-txt-primary); font-family: inherit;
+  transition: border-color .15s, background .15s;
+}
+.ap-spons-row[aria-selected='true'] { border-color: var(--nile-volt); background: rgba(200, 255, 0, 0.08); }
+/* Out of offers for this event — still listed, just not pickable. */
+.ap-spons-row:disabled { opacity: 0.5; cursor: default; }
+.ap-spons-cover {
+  width: 72px; aspect-ratio: 4 / 3; object-fit: cover; flex: none;
+  border-radius: var(--nile-r-sm, 8px); background: var(--nile-bg-surface);
+}
+.ap-spons-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ap-spons-info b { font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ap-spons-info small { color: var(--nile-txt-secondary); font-size: 13px; }
+
+/* Offer amount: a $ glued to the left of the field, with the suggestion,
+   CPM and host split stacked underneath it. */
+.ap-offer-field { display: flex; align-items: stretch; gap: 8px; }
+.ap-offer-prefix {
+  display: flex; align-items: center; padding: 0 14px; flex: none;
+  background: var(--nile-bg-raised); border: 1px solid var(--nile-border);
+  border-radius: var(--nile-r-md); font-size: 17px; font-weight: 600;
+  color: var(--nile-txt-secondary); margin-bottom: var(--nile-s-3);
+}
+.ap-offer-field .ap-input { font-size: 17px; font-weight: 600; }
+.ap-offer-line { color: var(--nile-txt-tertiary); font-size: 13px; line-height: 1.5;
+  margin: 0 0 6px; }
+.ap-offer-line .ap-link { font-size: 13px; }
+.ap-offer-err { color: #fca5a5; font-size: 13px; line-height: 1.5; margin: 0 0 6px; }
+
+.ap-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: var(--nile-s-6); }
+.ap-chip {
+  background: var(--nile-bg-raised); border: 1px solid var(--nile-border);
+  border-radius: var(--nile-r-pill); padding: 8px 14px; font-size: 14px; cursor: pointer;
+  color: var(--nile-txt-primary); font-family: inherit; transition: border-color .15s, background .15s;
+}
+.ap-chip[aria-selected='true'] { border-color: var(--nile-volt); background: rgba(200, 255, 0, 0.08); }
+
+.ap-crop { margin-bottom: var(--nile-s-4); }
+.ap-crop-frame {
+  width: 100%; aspect-ratio: 4 / 3; position: relative; overflow: hidden;
+  border-radius: var(--nile-r-md); border: 1px solid var(--nile-volt);
+  background: var(--nile-bg-raised); cursor: grab; touch-action: none;
+}
+.ap-crop-frame:active { cursor: grabbing; }
+.ap-crop-frame img { position: absolute; top: 0; left: 0; max-width: none;
+  user-select: none; pointer-events: none; }
+.ap-crop-zoom { width: 100%; margin: var(--nile-s-3) 0; accent-color: var(--nile-volt); }
+
+.ap-preview { width: 100%; aspect-ratio: 4 / 3; object-fit: cover;
+  border-radius: var(--nile-r-md); border: 1px solid var(--nile-border);
+  margin-bottom: var(--nile-s-4); background: var(--nile-bg-raised); }
+
+.ap-tbl { width: 100%; border-collapse: collapse; font-size: 14px; }
+.ap-tbl th { text-align: left; color: var(--nile-txt-tertiary); font-weight: 600; font-size: 12px;
+  text-transform: uppercase; letter-spacing: 0.04em; padding: 8px 10px; border-bottom: 1px solid var(--nile-border); }
+.ap-tbl td { padding: 14px 10px; border-bottom: 1px solid var(--nile-border);
+  color: var(--nile-txt-secondary); white-space: nowrap; }
+/* Name column is the flexible one — let it wrap instead of the numeric cells. */
+.ap-tbl td.name { color: var(--nile-txt-primary); font-weight: 600;
+  white-space: normal; overflow-wrap: anywhere; }
+.ap-badge { padding: 4px 10px; border-radius: var(--nile-r-pill); font-size: 12px; font-weight: 600; white-space: nowrap; }
+.ap-badge.ok { background: rgba(200, 255, 0, 0.12); color: var(--nile-volt); }
+.ap-badge.warn { background: rgba(245, 158, 11, 0.14); color: var(--nile-warning); }
+.ap-badge.err { background: rgba(239, 68, 68, 0.12); color: #fca5a5; }
+.ap-badge.muted { background: var(--nile-bg-raised); color: var(--nile-txt-secondary); }
+
+/* Folder tabs — one strip above the cards; the active tab merges into the card
+   below it by matching its background and masking the shared 1px border. */
+.ap-tabs {
+  display: flex; align-items: flex-end; gap: 2px; max-width: 880px;
+  margin: 0 auto -1px; padding: 0 var(--nile-s-4);
+  border-bottom: 1px solid var(--nile-border); position: relative; z-index: 1;
+  overflow-x: auto; scrollbar-width: none;
+}
+.ap-tabs::-webkit-scrollbar { display: none; }
+.ap-tabs--narrow { max-width: 520px; }
+.ap-tabs-gap { flex: 1 1 auto; min-width: var(--nile-s-4); }
+.ap-tab {
+  display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+  background: transparent; border: 1px solid transparent; border-bottom: none;
+  border-radius: var(--nile-r-md) var(--nile-r-md) 0 0;
+  padding: 10px 16px; margin-bottom: -1px;
+  font-family: inherit; font-size: 14px; font-weight: 600;
+  color: var(--nile-txt-tertiary); cursor: pointer;
+  transition: color .15s, background .15s;
+}
+.ap-tab:hover { color: var(--nile-txt-primary); background: var(--nile-bg-raised); }
+.ap-tab.is-active {
+  background: var(--nile-bg-surface); border-color: var(--nile-border);
+  color: var(--nile-txt-primary); box-shadow: 0 1px 0 0 var(--nile-bg-surface);
+}
+.ap-tab--quiet { font-weight: 500; }
+/* The "Nile admin →" entry is an <a>, so it inherits the site's underline. */
+a.ap-tab, a.ap-tab:hover { text-decoration: none; }
+.ap-tab-count {
+  background: rgba(200, 255, 0, 0.14); color: var(--nile-volt);
+  border-radius: var(--nile-r-pill); padding: 1px 7px; font-size: 11px; font-weight: 700;
+}
+/* Cards under the strip square off their top corners so it reads as one surface. */
+.ap-tabs + .ap-card { border-top-left-radius: 0; border-top-right-radius: 0; }
+.ap-review { border: 1px solid var(--nile-border); border-radius: var(--nile-r-md);
+  padding: var(--nile-s-5); margin-bottom: var(--nile-s-5); }
+.ap-report-head { display: flex; align-items: center; gap: var(--nile-s-3); margin-bottom: var(--nile-s-3); }
+.ap-rh { font-family: var(--nile-font-display); font-size: 18px; margin: 0 0 var(--nile-s-2); }
+.ap-rb { color: var(--nile-txt-secondary); font-size: 14px; margin: 0 0 var(--nile-s-3); }
+.ap-rmeta { color: var(--nile-txt-tertiary); font-size: 12px; margin: 0 0 var(--nile-s-4);
+  line-height: 1.6; overflow-wrap: anywhere; }
+.ap-rmeta a { color: var(--nile-txt-secondary); }
+.ap-rbtns { display: flex; gap: var(--nile-s-3); }
+.ap-reject { background: rgba(239, 68, 68, 0.12); color: #fca5a5;
+  border: 1px solid rgba(239, 68, 68, 0.3); border-radius: var(--nile-r-md);
+  padding: 10px 18px; font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit; }
+
+/* Admin management: add-by-email row + activity log */
+.ap-addrow { display: flex; gap: var(--nile-s-3); align-items: stretch; margin-bottom: var(--nile-s-6); }
+.ap-addrow .ap-input { margin-bottom: 0; flex: 1; }
+.ap-addrow .nile-btn { flex: none; white-space: nowrap; }
+.ap-audit { color: var(--nile-txt-secondary); font-size: 13px; margin: 0 0 var(--nile-s-2); line-height: 1.5; }
+.ap-audit b { color: var(--nile-txt-primary); font-weight: 600; }
+.ap-audit-when { color: var(--nile-txt-tertiary); font-size: 12px; margin-left: 8px; }
+
+.ap-clickable { cursor: pointer; }
+.ap-danger { color: #fca5a5; }
+.ap-rowactions { white-space: nowrap; }
+.ap-rowactions .ap-link + .ap-link { margin-left: 12px; }
+.ap-note-inline { color: var(--nile-txt-tertiary); font-size: 12px; font-weight: 400;
+  margin-top: 4px; line-height: 1.4; max-width: 340px; }
+/* Recovering a declined charge is the one action a dashboard row can carry
+   that isn't a link — it gets button weight because the offer dies without it. */
+.ap-recover { display: inline-block; margin-top: 8px; padding: 8px 16px;
+  font-size: 13px; text-decoration: none; }
+
+/* Bug reports & ideas */
+.ap-fb-filters { display: flex; gap: var(--nile-s-3); margin-bottom: var(--nile-s-5); flex-wrap: wrap; }
+/* Native selects and textareas render as white boxes against the dark chrome
+   unless they are told otherwise — the browser default wins over `color`
+   inheritance on form controls. Only the admin portal uses these. */
+.ap-fb-filters select,
+.ap-fb-triage select,
+.ap-fb-triage textarea {
+  background: var(--nile-bg-raised); border: 1px solid var(--nile-border);
+  color: var(--nile-txt-primary); border-radius: var(--nile-r-md);
+  padding: 10px 12px; font-size: 14px; font-family: inherit;
+}
+.ap-fb-filters select, .ap-fb-triage select { min-height: 44px; cursor: pointer; }
+.ap-fb-detail { border-top: 1px solid var(--nile-border); margin-top: var(--nile-s-4);
+  padding-top: var(--nile-s-4); }
+.ap-fb-h { font-size: 13px; text-transform: uppercase; letter-spacing: 1.2px;
+  color: var(--nile-txt-tertiary); margin: var(--nile-s-4) 0 var(--nile-s-2); }
+.ap-fb-shots { display: flex; gap: var(--nile-s-3); flex-wrap: wrap; }
+.ap-fb-shots img { width: 140px; aspect-ratio: 9 / 16; object-fit: cover; }
+.ap-fb-err { background: var(--nile-bg-page); border: 1px solid var(--nile-border);
+  border-radius: var(--nile-r-sm); padding: var(--nile-s-3); font-size: 11px;
+  line-height: 1.45; overflow-x: auto; white-space: pre-wrap; word-break: break-word;
+  color: var(--nile-txt-secondary); margin: 0 0 var(--nile-s-2); max-height: 220px; }
+.ap-fb-triage { display: grid; gap: var(--nile-s-3); max-width: 520px; }
+.ap-fb-triage textarea { width: 100%; resize: vertical; }
+
+.ap-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+  display: flex; align-items: center; justify-content: center;
+  padding: var(--nile-s-4); z-index: 50; }
+.ap-modal { background: var(--nile-bg-surface); border: 1px solid var(--nile-border);
+  border-radius: var(--nile-r-lg); padding: var(--nile-s-6); width: 100%;
+  max-width: 520px; max-height: 90vh; overflow-y: auto; }
+.ap-x { background: none; border: none; color: var(--nile-txt-secondary);
+  font-size: 24px; line-height: 1; cursor: pointer; padding: 0 4px; font-family: inherit; }
+.ap-dl { display: grid; gap: 8px; margin: 0 0 var(--nile-s-5); font-size: 14px; }
+.ap-dl div { display: flex; gap: 10px; }
+.ap-dl dt { flex: none; width: 92px; color: var(--nile-txt-tertiary); font-size: 12px;
+  text-transform: uppercase; letter-spacing: 0.04em; padding-top: 2px; }
+.ap-dl dd { margin: 0; color: var(--nile-txt-secondary); overflow-wrap: anywhere; }
+.ap-dl a { color: var(--nile-txt-secondary); }
+
+/* Retry affordance inside the error banner */
+.ap-msg.ap-err { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.ap-retry { flex: none; background: none; border: 1px solid rgba(239, 68, 68, 0.4);
+  color: #fca5a5; border-radius: var(--nile-r-sm); padding: 4px 12px; font-size: 13px;
+  cursor: pointer; font-family: inherit; }
+
+/* Load more */
+.ap-loadmore { display: block; width: 100%; margin-top: var(--nile-s-4);
+  background: var(--nile-bg-raised); border: 1px solid var(--nile-border);
+  color: var(--nile-txt-primary); border-radius: var(--nile-r-md); padding: 12px;
+  font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit; }
+.ap-loadmore:disabled { opacity: 0.6; cursor: default; }
+
+/* Activity chart */
+.ap-chart { margin: 0 0 var(--nile-s-6); }
+.ap-chart-cap { display: flex; flex-wrap: wrap; align-items: center; gap: var(--nile-s-5); margin: 0 0 var(--nile-s-2); font-size: 12px; color: var(--nile-txt-secondary); }
+.ap-chart-legend { display: inline-flex; align-items: center; gap: 6px; }
+.ap-chart-legend b { color: var(--nile-txt-primary); }
+.ap-chart-legend .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.ap-chart-filter { color: var(--nile-txt-tertiary); }
+.ap-chart-export { margin-left: auto; }
+.ap-row-selected td { background: rgba(200, 255, 0, 0.05); }
+.ap-chart-legend .dot.impr { background: var(--nile-volt); }
+.ap-chart-legend .dot.clk { background: var(--nile-coral); }
+.ap-chart-svg { width: 100%; height: 120px; display: block; }
+.ap-chart-svg .ln { fill: none; stroke-width: 2; vector-effect: non-scaling-stroke; }
+.ap-chart-svg .ln.impr { stroke: var(--nile-volt); }
+.ap-chart-svg .ln.clk { stroke: var(--nile-coral); }
+.ap-chart-axis { display: flex; justify-content: space-between; margin-top: 4px;
+  font-size: 11px; color: var(--nile-txt-tertiary); }
+/* Pending admin changes. Bordered rather than plain rows because this block
+   is a request for someone's attention, not a list they're browsing. */
+.ap-pending { margin: 0 0 var(--nile-s-6); padding: var(--nile-s-4);
+  border: 1px solid var(--nile-border); border-radius: var(--nile-r-md);
+  background: var(--nile-bg-raised); }
+.ap-pending-row { display: flex; flex-wrap: wrap; gap: var(--nile-s-4);
+  align-items: flex-start; justify-content: space-between;
+  padding: var(--nile-s-3) 0; border-top: 1px solid var(--nile-border); }
+.ap-pending-row:first-of-type { border-top: none; padding-top: 0; }
+.ap-placements { margin: 0 0 var(--nile-s-6); }
+.ap-placements h3 { display: flex; align-items: baseline; gap: var(--nile-s-2);
+  margin: 0 0 var(--nile-s-2); font-size: 15px; }
+.ap-placements h3 .ap-note-inline { margin-top: 0; }
+
+/* ── Responsive: tablets & below (≤760px) ────────────────────────────────────
+   The 7-column tables get cramped well before phone widths, so collapse them
+   to stacked cards here (keeps the numeric cells from bleeding). */
+@media (max-width: 760px) {
+  .ap-tbl--cards, .ap-tbl--cards thead, .ap-tbl--cards tbody,
+  .ap-tbl--cards tr, .ap-tbl--cards td { display: block; width: 100%; }
+  .ap-tbl--cards thead { position: absolute; left: -9999px; }
+  .ap-tbl--cards tr { border: 1px solid var(--nile-border);
+    border-radius: var(--nile-r-md); padding: var(--nile-s-3) var(--nile-s-4);
+    margin-bottom: var(--nile-s-3); }
+  .ap-tbl--cards td { border: none; padding: 6px 0;
+    display: flex; justify-content: space-between; gap: 12px; text-align: right;
+    white-space: normal; }
+  .ap-tbl--cards td[data-label]::before { content: attr(data-label);
+    color: var(--nile-txt-tertiary); font-size: 12px; text-transform: uppercase;
+    letter-spacing: 0.04em; text-align: left; flex: none; }
+  .ap-tbl--cards td.name { justify-content: flex-start; text-align: left; font-size: 15px; }
+  .ap-tbl--cards td.name::before { display: none; }
+  .ap-tbl--cards td.ap-rowactions { justify-content: flex-end; }
+  .ap-rowactions .ap-link + .ap-link { margin-left: 16px; }
+}
+
+/* ── Responsive: phones (≤480px) ─────────────────────────────────────────── */
+@media (max-width: 480px) {
+  .ap-card { padding: var(--nile-s-5); }
+  .ap-h { font-size: 21px; }
+  .ap-top { flex-wrap: wrap; gap: var(--nile-s-3); }
+  /* Tabs stay one horizontally-scrollable row rather than wrapping. */
+  .ap-tabs { padding: 0 var(--nile-s-2); }
+  .ap-tab { padding: 9px 12px; font-size: 13px; }
+  .ap-tabs-gap { min-width: 0; }
+  .ap-new { width: 100%; text-align: center; }
+  .ap-grid { gap: 8px; }
+  .ap-opt { padding: 13px 6px; font-size: 15px; }
+  .ap-modal { padding: var(--nile-s-5); }
+  .ap-dl div { flex-direction: column; gap: 2px; }
+  .ap-dl dt { width: auto; }
+  .ap-rbtns { flex-wrap: wrap; }
+  .ap-rbtns .nile-btn, .ap-reject { flex: 1 1 auto; text-align: center; }
+  .ap-note-inline { max-width: none; }
+  .ap-addrow { flex-direction: column; }
+  .ap-addrow .nile-btn { width: 100%; }
+}

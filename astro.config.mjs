@@ -20,6 +20,7 @@ export default defineConfig({
         ![
           "/auth/",
           "/download",
+          "/admin",
           "/advertise/portal",
           "/boost",
           "/tip",

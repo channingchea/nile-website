@@ -1,0 +1,52 @@
+---
+// Shell document for /admin/*.
+//
+// Deliberately not BaseLayout: staff tooling has no business loading the
+// marketing header, footer, waitlist modal or the ad/analytics pixels, and the
+// two audiences shouldn't share a bundle. Every /admin page is one of these
+// with a different `section` — the island reads it and boots straight into
+// that queue, so there's no overview flash on a deep link.
+import "../styles/brand.css";
+import "../styles/portal.css";
+import "../styles/admin.css";
+import AdminPortal from "../components/AdminPortal.vue";
+
+export type AdminSection =
+  | "overview" | "review" | "spotcheck" | "reports"
+  | "appeals" | "feedback" | "featured" | "admins";
+
+interface Props {
+  section: AdminSection;
+  /** Tab title only — the visible heading lives in the island. */
+  title: string;
+}
+const { section, title } = Astro.props;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title} · Nile admin</title>
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="icon" href="/favicon.svg?v=2" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&family=Syne:wght@600;700;800&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <AdminPortal client:only="vue" section={section} />
+    <noscript>
+      <div class="ad-shell ad-shell--bare">
+        <div class="ap-card">
+          <h2 class="ap-h">JavaScript required</h2>
+          <p class="ap-sub">The Nile admin portal needs JavaScript enabled.</p>
+        </div>
+      </div>
+    </noscript>
+  </body>
+</html>

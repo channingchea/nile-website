@@ -5,6 +5,10 @@
 // meaningful static content, so there's nothing to pre-render or index.
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import AdvertiserPortal from "../../components/AdvertiserPortal.vue";
+// Portal chrome (.ap-*) now lives in a shared stylesheet so the staff admin
+// portal can reuse it. Imported here rather than inside the .vue file so it
+// ships as a stylesheet, not inside the client:only island's JS.
+import "../../styles/portal.css";
 ---
 
 <BaseLayout
