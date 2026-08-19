@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref } from "vue";
 import { submitWaitlist, type WaitlistSegment } from "../lib/waitlist";
+import { trackWaitlistSignup } from "../lib/tracking";
 
 // CTA flips to App Store / Play links at app launch — see site.config TODO.
 const email = ref("");
@@ -18,6 +19,7 @@ async function onSubmit() {
   try {
     await submitWaitlist({ email: email.value, segment: segment.value });
     status.value = "done";
+    trackWaitlistSignup(segment.value);
   } catch {
     status.value = "error";
   }

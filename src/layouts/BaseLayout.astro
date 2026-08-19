@@ -25,6 +25,16 @@ const {
 
 const canonicalUrl = new URL(canonical ?? Astro.url.pathname, SITE.domain).href;
 const ogImageUrl = new URL(ogImage, SITE.domain).href;
+
+// Ad + analytics tracking (GA4 + Google Ads conversion + Meta Pixel). All
+// optional — unset env vars just mean that tag never loads. Set via
+// PUBLIC_GA4_ID / PUBLIC_GOOGLE_ADS_ID / PUBLIC_GOOGLE_ADS_LABEL /
+// PUBLIC_META_PIXEL_ID (see .env.example).
+const GA4_ID = import.meta.env.PUBLIC_GA4_ID || "";
+const ADS_ID = import.meta.env.PUBLIC_GOOGLE_ADS_ID || "";
+const ADS_LABEL = import.meta.env.PUBLIC_GOOGLE_ADS_LABEL || "";
+const META_PIXEL_ID = import.meta.env.PUBLIC_META_PIXEL_ID || "";
+const hasTracking = Boolean(GA4_ID || ADS_ID || META_PIXEL_ID);
 ---
 
 <!doctype html>
@@ -64,6 +74,98 @@ const ogImageUrl = new URL(ogImage, SITE.domain).href;
 
     {jsonLd && <script type="application/ld+json" set:html={jsonLd} />}
     <slot name="head" />
+
+    {
+      hasTracking && (
+        <script
+          is:inline
+          define:vars={{ GA4_ID, ADS_ID, ADS_LABEL, META_PIXEL_ID }}
+        >
+          // Ad/analytics loader, gated on consent. Respects both the site's
+          // own "Your Privacy Choices" footer toggle and the browser's
+          // Global Privacy Control signal — either one skips every tag
+          // below entirely. See /cookies for what each tag is for.
+          (function () {
+            var optedOut = false;
+            try {
+              optedOut =
+                localStorage.getItem("nile-ad-optout") === "1" ||
+                navigator.globalPrivacyControl === true;
+            } catch (e) {}
+
+            window.nileTrack = { signup: function () {} }; // no-op default
+
+            if (optedOut) return;
+
+            if (GA4_ID || ADS_ID) {
+              var tagId = GA4_ID || ADS_ID;
+              var s = document.createElement("script");
+              s.async = true;
+              s.src = "https://www.googletagmanager.com/gtag/js?id=" + tagId;
+              document.head.appendChild(s);
+              window.dataLayer = window.dataLayer || [];
+              window.gtag = function () {
+                window.dataLayer.push(arguments);
+              };
+              window.gtag("js", new Date());
+              if (GA4_ID) window.gtag("config", GA4_ID, { anonymize_ip: true });
+              if (ADS_ID) window.gtag("config", ADS_ID);
+            }
+
+            if (META_PIXEL_ID) {
+              (function (f, b, e, v, n, t, s) {
+                if (f.fbq) return;
+                n = f.fbq = function () {
+                  n.callMethod
+                    ? n.callMethod.apply(n, arguments)
+                    : n.queue.push(arguments);
+                };
+                if (!f._fbq) f._fbq = n;
+                n.push = n;
+                n.loaded = true;
+                n.version = "2.0";
+                n.queue = [];
+                t = b.createElement(e);
+                t.async = true;
+                t.src = v;
+                s = b.getElementsByTagName(e)[0];
+                s.parentNode.insertBefore(t, s);
+              })(
+                window,
+                document,
+                "script",
+                "https://connect.facebook.net/en_US/fbevents.js",
+              );
+              window.fbq("init", META_PIXEL_ID);
+              window.fbq("track", "PageView");
+            }
+
+            // Called by the waitlist form/modal on a successful signup.
+            window.nileTrack = {
+              signup: function (segment) {
+                if (window.gtag && ADS_ID) {
+                  window.gtag("event", "conversion", {
+                    send_to: ADS_ID + (ADS_LABEL ? "/" + ADS_LABEL : ""),
+                  });
+                }
+                if (window.gtag && GA4_ID) {
+                  window.gtag("event", "sign_up", {
+                    method: "waitlist",
+                    segment: segment || "unknown",
+                  });
+                }
+                if (window.fbq) {
+                  window.fbq("track", "Lead", {
+                    content_name: "waitlist_signup",
+                    segment: segment || "unknown",
+                  });
+                }
+              },
+            };
+          })();
+        </script>
+      )
+    }
   </head>
   <body>
     <Header />

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from "vue";
 import { submitWaitlist, type WaitlistSegment } from "../lib/waitlist";
+import { trackWaitlistSignup } from "../lib/tracking";
 
 // Opened by any element with [data-waitlist] (wired in BaseLayout) which
 // dispatches a 'nile:waitlist-open' event. Keeps a single capture form
@@ -39,6 +40,7 @@ async function onSubmit() {
   try {
     await submitWaitlist({ email: email.value, segment: segment.value });
     status.value = "done";
+    trackWaitlistSignup(segment.value);
   } catch {
     status.value = "error";
   }

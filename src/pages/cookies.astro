@@ -2,7 +2,7 @@
 import BaseLayout from "../layouts/BaseLayout.astro";
 import { SITE } from "../site.config";
 
-const updated = "June 26, 2026";
+const updated = "August 19, 2026";
 ---
 
 <BaseLayout
@@ -39,13 +39,19 @@ const updated = "June 26, 2026";
         <ul>
           <li><strong>_ga, _ga_*</strong>: set by Google Analytics. Persist for up to 2 years. Identify unique visitors and sessions.</li>
         </ul>
-        <p>GA4 is configured with IP anonymization enabled. We do not use GA4 data to serve you targeted advertising. You can opt out of Google Analytics across the web using <a href="https://tools.google.com/dlpage/gaoptout" target="_blank" rel="noopener">Google's opt-out browser add-on</a>.</p>
+        <p>GA4 is configured with IP anonymization enabled. You can opt out of Google Analytics across the web using <a href="https://tools.google.com/dlpage/gaoptout" target="_blank" rel="noopener">Google's opt-out browser add-on</a>, or use the "Do Not Sell or Share My Info" link in the footer, which turns this off too.</p>
 
-        <h3>What we do NOT use</h3>
-        <p>We do not use advertising or retargeting cookies. We do not share cookie data with ad networks or data brokers.</p>
+        <h3>Advertising</h3>
+        <p>When you arrive at joinnile.com from a Google or Meta (Facebook/Instagram) ad, we use Google Ads conversion tracking and the Meta Pixel to measure whether that ad led to a waitlist signup, and to show our ads to people who are more likely to be interested. These are set only on pages you visit and only after an ad click or a Meta-platform referral — they don't run if you arrive some other way and haven't interacted with our ads.</p>
+        <ul>
+          <li><strong>_gcl_au, gclid-linked cookies</strong>: set by Google Ads. Used to attribute a waitlist signup to a specific ad click.</li>
+          <li><strong>_fbp, _fbc</strong>: set by the Meta Pixel. Used to attribute a waitlist signup to a specific ad and to build ad audiences on Meta's platforms.</li>
+        </ul>
+        <p>We share limited event data (page views and waitlist-signup events, tied to a browser identifier — not your name or account) with Google and Meta for this purpose. We do not sell your personal information, and we do not use these tools to build a profile of you beyond measuring and improving our own ad campaigns.</p>
 
         <h2>Do We Need a Cookie Banner?</h2>
-        <p>The Service is currently available to US residents only. US federal law does not require a cookie consent banner. If we expand to the EU, UK, or other jurisdictions with stricter requirements (e.g., GDPR, ePrivacy), we will add a consent mechanism at that time.</p>
+        <p>The Service is currently available to US residents only. US federal law does not require a cookie consent banner, and the advertising cookies above are not the kind of tracking GDPR's cookie-consent rules were written for — but if we expand to the EU, UK, or other jurisdictions with stricter requirements, we'll add a consent banner at that time.</p>
+        <p>California residents have a right under the CCPA/CPRA to opt out of the "sale or sharing" of personal information used for cross-context advertising — which covers the Google Ads and Meta Pixel cookies described above. Instead of a banner, we handle this with a direct opt-out: click <strong>"Do Not Sell or Share My Info"</strong> in the footer on any page, or turn on your browser's <a href="https://globalprivacycontrol.org/" target="_blank" rel="noopener">Global Privacy Control</a> signal, which we detect and honor automatically. Either one stops the Google Ads, Meta Pixel, and GA4 tags from loading at all, site-wide, immediately.</p>
 
         <h2>Managing Cookies</h2>
         <p>You can control and delete cookies through your browser settings. Note that disabling strictly necessary cookies will prevent you from logging in or using core features of the Service.</p>

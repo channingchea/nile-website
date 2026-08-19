@@ -27,6 +27,10 @@ jobs:
           PUBLIC_CREATE_AD_PAYMENT_URL: ${{ secrets.PUBLIC_CREATE_AD_PAYMENT_URL }}
           PUBLIC_REVIEW_AD_CAMPAIGN_URL: ${{ secrets.PUBLIC_REVIEW_AD_CAMPAIGN_URL }}
           PUBLIC_MODERATE_REPORT_URL: ${{ secrets.PUBLIC_MODERATE_REPORT_URL }}
+          PUBLIC_GA4_ID: ${{ secrets.PUBLIC_GA4_ID }}
+          PUBLIC_GOOGLE_ADS_ID: ${{ secrets.PUBLIC_GOOGLE_ADS_ID }}
+          PUBLIC_GOOGLE_ADS_LABEL: ${{ secrets.PUBLIC_GOOGLE_ADS_LABEL }}
+          PUBLIC_META_PIXEL_ID: ${{ secrets.PUBLIC_META_PIXEL_ID }}
 
       - name: Deploy to Hostinger via FTP
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5

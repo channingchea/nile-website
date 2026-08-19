@@ -22,9 +22,39 @@ const year = new Date().getFullYear();
     <p class="copyright">© {year} Nile. Available in the US.</p>
     <nav class="footer-legal" aria-label="Legal">
       {LEGAL_NAV.map((item) => <a href={item.href}>{item.label}</a>)}
+      <button type="button" id="privacy-choices" class="privacy-choices"></button>
     </nav>
   </div>
 </footer>
+
+<script is:inline>
+  // "Your Privacy Choices" — CCPA opt-out of ad tracking (Google Ads / Meta
+  // Pixel). Toggles a flag BaseLayout's tracking loader checks before it
+  // loads anything, then reloads so the choice takes effect immediately.
+  (function () {
+    var btn = document.getElementById("privacy-choices");
+    if (!btn) return;
+    function optedOut() {
+      try {
+        return localStorage.getItem("nile-ad-optout") === "1";
+      } catch (e) {
+        return false;
+      }
+    }
+    function render() {
+      btn.textContent = optedOut()
+        ? "Ad Tracking Off (tap to re-enable)"
+        : "Do Not Sell or Share My Info";
+    }
+    render();
+    btn.addEventListener("click", function () {
+      try {
+        localStorage.setItem("nile-ad-optout", optedOut() ? "0" : "1");
+      } catch (e) {}
+      location.reload();
+    });
+  })();
+</script>
 
 <style>
   .site-footer {
@@ -95,6 +125,18 @@ const year = new Date().getFullYear();
     text-decoration: none;
   }
   .footer-legal a:hover {
+    color: var(--nile-txt-secondary);
+  }
+  .privacy-choices {
+    background: none;
+    border: none;
+    padding: 0;
+    color: var(--nile-txt-tertiary);
+    font-size: 0.85rem;
+    font-family: var(--nile-font-body);
+    cursor: pointer;
+  }
+  .privacy-choices:hover {
     color: var(--nile-txt-secondary);
   }
 </style>
