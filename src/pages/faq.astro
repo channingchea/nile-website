@@ -35,6 +35,14 @@ const faqSchema = JSON.stringify({
     },
     {
       "@type": "Question",
+      name: "Can I premiere a pre-recorded film on Nile?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "Yes, as a live premiere. You share your screen and play the film from your own computer at the start time you set, with your intro before it and a live Q&A after. There's no film upload today, so the premiere runs as a live event rather than a scheduled video file. Everything else works the same: ticketing, multiple angles for the talkback, and an automatic replay afterward.",
+      },
+    },
+    {
+      "@type": "Question",
       name: "What camera angles can I stream?",
       acceptedAnswer: {
         "@type": "Answer",
@@ -129,6 +137,18 @@ const sections = [
       {
         q: "What happens if my stream drops mid-show?",
         a: "You can rejoin the stream without ending the show. The broadcast keeps running, and your audience stays in the session. A dropped connection doesn't mean a cancelled event.",
+      },
+      {
+        q: "Can I premiere a pre-recorded film on Nile?",
+        a: "Yes, as a live premiere. You share your screen and play the film from your own computer at the start time you set, with your intro before it and a live Q&A after. There's no film upload today, so the premiere runs as a live event rather than a scheduled video file. Everything else works the same: ticketing, multiple angles for the talkback, and an automatic replay afterward.",
+      },
+      {
+        q: "Who owns my film if I premiere it on Nile?",
+        a: "You do. Nile is a platform for selling access to your event, not a distributor. We don't take ownership of your work, we don't claim exclusivity, and we don't acquire rights to it. You're licensing us to stream it for your event and to host the replay you choose to sell.",
+      },
+      {
+        q: "Does premiering on Nile affect my festival or distribution options?",
+        a: "That depends on the festival or distributor, not on us. Many festivals have premiere-status rules that count any public screening, online included. Check the rules for the festivals you're targeting before you set a date. If your film is already through its festival run, or you're skipping it, a Nile premiere is yours to schedule whenever you want.",
       },
       {
         q: "How does VOD work?",

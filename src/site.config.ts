@@ -23,6 +23,7 @@ export const NAV = [
       { label: "Musicians", href: "/musicians" },
       { label: "Worship", href: "/worship" },
       { label: "Creators", href: "/creators" },
+      { label: "Filmmakers", href: "/filmmakers" },
     ],
   },
   { label: "Watch", href: "/watch" },

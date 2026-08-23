@@ -3,7 +3,14 @@
 // Set PUBLIC_KLAVIYO_KEY in .env (Astro exposes PUBLIC_* to client bundles).
 // Set PUBLIC_KLAVIYO_LIST_ID to the Klaviyo list ID for waitlist signups.
 
-export type WaitlistSegment = "host" | "viewer" | "advertiser";
+export type WaitlistSegment =
+  | "host"
+  | "viewer"
+  | "advertiser"
+  | "musician"
+  | "worship"
+  | "creator"
+  | "filmmaker";
 
 export interface WaitlistEntry {
   email: string;
