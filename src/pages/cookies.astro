@@ -47,7 +47,11 @@ const updated = "August 19, 2026";
           <li><strong>_gcl_au, gclid-linked cookies</strong>: set by Google Ads. Used to attribute a waitlist signup to a specific ad click.</li>
           <li><strong>_fbp, _fbc</strong>: set by the Meta Pixel. Used to attribute a waitlist signup to a specific ad and to build ad audiences on Meta's platforms.</li>
         </ul>
-        <p>We share limited event data (page views and waitlist-signup events, tied to a browser identifier — not your name or account) with Google and Meta for this purpose. We do not sell your personal information, and we do not use these tools to build a profile of you beyond measuring and improving our own ad campaigns.</p>
+        <p>We share limited event data (page views, CTA clicks, and waitlist-signup events, tied to a browser identifier — not your name or account) with Google and Meta for this purpose. We do not sell your personal information, and we do not use these tools to build a profile of you beyond measuring and improving our own ad campaigns.</p>
+
+        <h3>Hashed Email in Conversion Measurement</h3>
+        <p>When you submit the waitlist form, we also send Google Ads a <strong>hashed</strong> version of the email address you entered — a feature Google calls "enhanced conversions." Your address is converted into an irreversible SHA-256 fingerprint <em>in your own browser</em> before anything is sent; the readable address never leaves this page for that purpose. Google compares that fingerprint against its own to work out whether the signup came from one of our ads, then discards it. It is used only to count conversions accurately, not to target you, and it is never shared with anyone else.</p>
+        <p>This only happens if you actually submit the waitlist form, and never if you have opted out using the control described below — in that case no advertising tag loads at all, so nothing is sent.</p>
 
         <h2>Do We Need a Cookie Banner?</h2>
         <p>The Service is currently available to US residents only. US federal law does not require a cookie consent banner, and the advertising cookies above are not the kind of tracking GDPR's cookie-consent rules were written for — but if we expand to the EU, UK, or other jurisdictions with stricter requirements, we'll add a consent banner at that time.</p>

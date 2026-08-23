@@ -40,7 +40,10 @@ async function onSubmit() {
   try {
     await submitWaitlist({ email: email.value, segment: segment.value });
     status.value = "done";
-    trackWaitlistSignup(segment.value);
+    // Email is passed for enhanced conversions — hashed in-browser by gtag,
+    // never sent raw. Fires only after Klaviyo accepts, so the conversion
+    // count can't drift above the actual list.
+    trackWaitlistSignup(segment.value, email.value);
   } catch {
     status.value = "error";
   }

@@ -52,7 +52,12 @@ const softwareSchema = JSON.stringify({
         macOS puts every angle, your whole crew, and live chat on one screen,
         so you can watch the show instead of watching a phone.
       </p>
-      <a class="nile-btn nile-btn--primary download-btn" href={DMG_URL}>
+      <a
+        class="nile-btn nile-btn--primary download-btn"
+        href={DMG_URL}
+        data-track="download_click"
+        data-track-label="hero"
+      >
         Download for Mac
       </a>
       <p class="meta">
@@ -190,7 +195,14 @@ const softwareSchema = JSON.stringify({
       <p class="closing-sub">
         Free to download, free to watch. You only pay when you sell a ticket.
       </p>
-      <a class="nile-btn nile-btn--primary" href={DMG_URL}>Download for Mac</a>
+      <a
+        class="nile-btn nile-btn--primary"
+        href={DMG_URL}
+        data-track="download_click"
+        data-track-label="closing"
+      >
+        Download for Mac
+      </a>
       <p class="meta">
         On a phone right now? Nile is on iPhone and Android too — <a
           href="/resources/compatible-devices">see every supported device</a

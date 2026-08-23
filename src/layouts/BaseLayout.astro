@@ -93,9 +93,24 @@ const hasTracking = Boolean(GA4_ID || ADS_ID || META_PIXEL_ID);
                 navigator.globalPrivacyControl === true;
             } catch (e) {}
 
-            window.nileTrack = { signup: function () {} }; // no-op default
+            // No-op defaults so callers never have to null-check. Replaced
+            // with the real implementations below once the tags load.
+            window.nileTrack = {
+              signup: function () {},
+              event: function () {},
+            };
 
             if (optedOut) return;
+
+            // The page a visitor first landed on is the one the ad paid for.
+            // Later events fire on whatever page they navigated to, so keep
+            // the entry path for the session and report both.
+            var landingPage = location.pathname;
+            try {
+              var stored = sessionStorage.getItem("nile-landing-page");
+              if (stored) landingPage = stored;
+              else sessionStorage.setItem("nile-landing-page", landingPage);
+            } catch (e) {}
 
             if (GA4_ID || ADS_ID) {
               var tagId = GA4_ID || ADS_ID;
@@ -109,7 +124,10 @@ const hasTracking = Boolean(GA4_ID || ADS_ID || META_PIXEL_ID);
               };
               window.gtag("js", new Date());
               if (GA4_ID) window.gtag("config", GA4_ID, { anonymize_ip: true });
-              if (ADS_ID) window.gtag("config", ADS_ID);
+              if (ADS_ID)
+                window.gtag("config", ADS_ID, {
+                  allow_enhanced_conversions: true,
+                });
             }
 
             if (META_PIXEL_ID) {
@@ -140,26 +158,59 @@ const hasTracking = Boolean(GA4_ID || ADS_ID || META_PIXEL_ID);
               window.fbq("track", "PageView");
             }
 
-            // Called by the waitlist form/modal on a successful signup.
             window.nileTrack = {
-              signup: function (segment) {
+              // Called by the waitlist modal on a successful signup.
+              // `email` powers Google's enhanced conversions: gtag hashes it
+              // with SHA-256 in the browser before anything is sent, so the
+              // raw address never leaves the page. It lets Google match
+              // signups back to ad clicks that cookie-based tracking misses,
+              // which on a lead form is most of them. Described in /cookies.
+              signup: function (segment, email) {
+                var where = {
+                  landing_page: landingPage,
+                  source_page: location.pathname,
+                  segment: segment || "unknown",
+                };
                 if (window.gtag && ADS_ID) {
+                  if (email) {
+                    window.gtag("set", "user_data", {
+                      email: String(email).trim().toLowerCase(),
+                    });
+                  }
                   window.gtag("event", "conversion", {
                     send_to: ADS_ID + (ADS_LABEL ? "/" + ADS_LABEL : ""),
                   });
                 }
                 if (window.gtag && GA4_ID) {
-                  window.gtag("event", "sign_up", {
-                    method: "waitlist",
-                    segment: segment || "unknown",
-                  });
+                  window.gtag(
+                    "event",
+                    "sign_up",
+                    Object.assign({ method: "waitlist" }, where),
+                  );
                 }
                 if (window.fbq) {
-                  window.fbq("track", "Lead", {
-                    content_name: "waitlist_signup",
-                    segment: segment || "unknown",
-                  });
+                  window.fbq(
+                    "track",
+                    "Lead",
+                    Object.assign({ content_name: "waitlist_signup" }, where),
+                  );
                 }
+              },
+
+              // Softer signals (CTA clicks, download intent). NOT conversions
+              // — they exist so GA4 can build remarketing audiences and show
+              // which marketing page actually drives interest, long before
+              // signup volume is high enough to read on its own.
+              event: function (name, params) {
+                var payload = Object.assign(
+                  {
+                    landing_page: landingPage,
+                    source_page: location.pathname,
+                  },
+                  params || {},
+                );
+                if (window.gtag && GA4_ID) window.gtag("event", name, payload);
+                if (window.fbq) window.fbq("trackCustom", name, payload);
               },
             };
           })();
@@ -182,11 +233,27 @@ const hasTracking = Boolean(GA4_ID || ADS_ID || META_PIXEL_ID);
         const t = e.target.closest("[data-waitlist]");
         if (!t) return;
         e.preventDefault();
+        const segment = t.getAttribute("data-segment") || undefined;
+        // Intent signal: which CTA on which page made someone open the form.
+        // Pairs with sign_up to give a per-page open→submit rate.
+        window.nileTrack?.event("waitlist_open", {
+          segment: segment || "unknown",
+        });
         window.dispatchEvent(
-          new CustomEvent("nile:waitlist-open", {
-            detail: { segment: t.getAttribute("data-segment") || undefined },
-          }),
+          new CustomEvent("nile:waitlist-open", { detail: { segment } }),
         );
+      });
+
+      // Any element with data-track="event_name" reports itself when clicked.
+      // Generic on purpose: new CTAs opt in with an attribute, not new script.
+      document.addEventListener("click", (e) => {
+        const t = e.target.closest("[data-track]");
+        if (!t) return;
+        window.nileTrack?.event(t.getAttribute("data-track"), {
+          label:
+            t.getAttribute("data-track-label") ||
+            (t.textContent || "").trim().slice(0, 60),
+        });
       });
     </script>
 
