@@ -110,6 +110,11 @@
   border-radius: var(--nile-r-md); border: 1px solid var(--nile-border);
   margin-bottom: var(--nile-s-4); background: var(--nile-bg-raised); }
 
+/* Square sponsor logo (lobby offers) — small, contained, never cropped. */
+.ap-logo { display: flex; align-items: center; gap: var(--nile-s-3); margin-bottom: var(--nile-s-3); }
+.ap-logo-preview { width: 96px; aspect-ratio: 1; object-fit: contain;
+  border-radius: var(--nile-r-md); border: 1px solid var(--nile-border); background: var(--nile-bg-raised); }
+
 .ap-tbl { width: 100%; border-collapse: collapse; font-size: 14px; }
 .ap-tbl th { text-align: left; color: var(--nile-txt-tertiary); font-weight: 600; font-size: 12px;
   text-transform: uppercase; letter-spacing: 0.04em; padding: 8px 10px; border-bottom: 1px solid var(--nile-border); }

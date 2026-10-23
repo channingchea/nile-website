@@ -62,6 +62,9 @@ type Row = {
   // reviewer talking. Never show one under the other's label.
   host_note: string | null; offer_expires_at: string | null; last_decline_code: string | null;
   payment_recovery_url: string | null;
+  // 0137. Sponsor logo shown on screen during the show (host's choice) — a
+  // free bonus, never billed, and excluded from impressions/clicks/reach.
+  in_show_impressions: number;
 };
 // Sponsorable event (get_sponsorable_events). Pricing is per-event now: the
 // host's floor, the platform ceiling, and how many offers this advertiser has
@@ -266,6 +269,58 @@ const videoDurationMs = ref(0);
 const existingVideoUrl = ref(""); // current creative video when editing
 const MAX_VIDEO_BYTES = 100 * 1024 * 1024;
 const VIDEO_MAX_MS = 60_000;
+
+// Optional square sponsor logo (0137, sponsorships only): the host can put it
+// on screen during the show. Stored as a bucket-relative path in ad-creatives.
+const logoFile = ref<File | null>(null);
+const logoPreviewUrl = ref("");
+const logoPath = ref<string | null>(null); // existing logo when editing
+const LOGO_TYPES: Record<string, string> = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp" };
+const logoSrc = computed(() =>
+  logoPreviewUrl.value ||
+  (logoPath.value ? sb.storage.from("ad-creatives").getPublicUrl(logoPath.value).data.publicUrl : ""));
+function onLogoFile(e: Event) {
+  msg.value = "";
+  const input = e.target as HTMLInputElement;
+  const f = input.files?.[0];
+  input.value = ""; // allow re-picking the same file
+  if (!f) return;
+  if (!LOGO_TYPES[f.type]) { msg.value = "Logo must be a PNG, JPG or WebP."; return; }
+  if (f.size > 1024 * 1024) { msg.value = "Logo must be under 1MB."; return; }
+  const url = URL.createObjectURL(f);
+  const probe = new Image();
+  probe.onload = () => {
+    const { naturalWidth: w, naturalHeight: h } = probe;
+    if (Math.min(w, h) < 200) { URL.revokeObjectURL(url); msg.value = "Logo must be at least 200×200 px."; return; }
+    if (Math.abs(w - h) / Math.max(w, h) > 0.02) {
+      URL.revokeObjectURL(url);
+      msg.value = `Logo must be square — this one is ${w}×${h} px.`;
+      return;
+    }
+    removeLogo();
+    logoFile.value = f;
+    logoPreviewUrl.value = url;
+  };
+  probe.onerror = () => { URL.revokeObjectURL(url); msg.value = "Couldn't read that logo. Try another file."; };
+  probe.src = url;
+}
+function removeLogo() {
+  if (logoPreviewUrl.value) URL.revokeObjectURL(logoPreviewUrl.value);
+  logoPreviewUrl.value = "";
+  logoFile.value = null;
+  logoPath.value = null;
+}
+// Same account-folder convention as the creative; the DB CHECK + trigger
+// require `${account_id}/<name>.<png|jpg|jpeg|webp>`.
+async function uploadLogo(): Promise<string> {
+  const f = logoFile.value!;
+  const path = `${account.value!.id}/logo-${crypto.randomUUID()}.${LOGO_TYPES[f.type]}`;
+  const { error } = await sb.storage
+    .from("ad-creatives")
+    .upload(path, f, { contentType: f.type, upsert: false });
+  if (error) throw error;
+  return path;
+}
 
 // cropper — pan/zoom the picked image inside a fixed 4:3 frame, export 1200×900
 const cropSrc = ref("");
@@ -605,12 +660,12 @@ async function exportCampaignsCsv() {
     }
     all = all.slice(0, CAP);
     const header = [
-      "Campaign", "Status", "Budget", "Spent", "Impressions", "Reach",
+      "Campaign", "Status", "Budget", "Spent", "Impressions", "In-show logo impressions", "Reach",
       "Frequency", "Clicks", "CTR", "eCPM", "eCPC", "Created",
     ];
     const body = all.map((r) => [
       r.headline || r.name, sponsorStatusLabel(r), money(r.budget_cents), money(r.spent_cents),
-      r.impressions, r.reach, freq(r), r.clicks, ctr(r),
+      r.impressions, r.placement === "lobby" ? (r.in_show_impressions ?? 0) : "", r.reach, freq(r), r.clicks, ctr(r),
       dashIfNull(r.ecpm_cents), dashIfNull(r.ecpc_cents),
       new Date(r.created_at).toLocaleDateString(),
     ]);
@@ -866,6 +921,7 @@ function resetBuilder() {
   videoPreviewUrl.value = "";
   videoDurationMs.value = 0;
   existingVideoUrl.value = "";
+  removeLogo();
 }
 async function loadTopics() {
   const { data } = await sb.from("topics").select("id, name").eq("is_active", true).order("sort_order");
@@ -888,7 +944,7 @@ async function openEdit(r: Row) {
   const [, { data: camp }] = await Promise.all([
     loadTopics(),
     sb.from("ad_campaigns")
-      .select("ad_creatives(image_url, headline, body, click_url, kind, video_path), ad_targeting(topic_ids)")
+      .select("ad_creatives(image_url, headline, body, click_url, kind, video_path, logo_path), ad_targeting(topic_ids)")
       .eq("id", r.campaign_id).maybeSingle(),
   ]);
   const cr = (camp as any)?.ad_creatives?.[0];
@@ -903,6 +959,7 @@ async function openEdit(r: Row) {
   existingVideoUrl.value = cr.video_path
     ? sb.storage.from("ad-videos").getPublicUrl(cr.video_path).data.publicUrl
     : "";
+  logoPath.value = cr.logo_path ?? null;
   selectedTopics.value = new Set((tg?.topic_ids as string[]) ?? []);
   editingId.value = r.campaign_id;
   view.value = "build";
@@ -1038,6 +1095,7 @@ async function submitCampaign() {
       if (!isVideo) {
         update.image_url = file.value ? await uploadCreative() : existingImageUrl.value;
       }
+      if (isSponsor) update.logo_path = logoFile.value ? await uploadLogo() : logoPath.value;
       const { error: crErr } = await sb.from("ad_creatives")
         .update(update)
         .eq("campaign_id", editingId.value);
@@ -1085,6 +1143,7 @@ async function submitCampaign() {
     } else {
       payload.image_url = await uploadCreative();
     }
+    if (isSponsor && logoFile.value) payload.logo_path = await uploadLogo();
 
     // 2) Function (service role) creates campaign+creative+targeting, returns Checkout URL.
     const { data: sess } = await sb.auth.getSession();
@@ -1304,7 +1363,13 @@ const activeTab = computed(() => (view.value === "build" ? "dash" : view.value))
                 </div>
               </td>
               <td data-label="Status"><span class="ap-badge" :class="statusClass(r.status)">{{ sponsorStatusLabel(r) }}</span></td>
-              <td data-label="Impr.">{{ r.impressions }}</td>
+              <td data-label="Impr.">
+                {{ r.impressions }}
+                <div
+                  v-if="r.placement === 'lobby' && r.in_show_impressions > 0" class="ap-note-inline"
+                  title="Your logo on screen during the show — a free bonus, never billed"
+                >+{{ r.in_show_impressions }} in-show logo</div>
+              </td>
               <td data-label="Reach">
                 {{ r.reach }}
                 <div class="ap-note-inline">{{ freq(r) }} each</div>
@@ -1522,6 +1587,19 @@ const activeTab = computed(() => (view.value === "build" ? "dash" : view.value))
           {{ product === 'sponsor'
             ? 'loops muted in the Pre-Show lobby; viewers can tap to unmute.'
             : 'plays with sound between Currents; viewers can swipe past anytime.' }}
+        </p>
+      </template>
+
+      <template v-if="product === 'sponsor'">
+        <label class="ap-label">Sponsor logo (optional — square PNG, JPG or WebP, at least 200×200 px, max 1MB)</label>
+        <input class="ap-input" type="file" accept="image/png,image/jpeg,image/webp" @change="onLogoFile" />
+        <div v-if="logoSrc" class="ap-logo">
+          <img :src="logoSrc" class="ap-logo-preview" alt="Sponsor logo" />
+          <button type="button" class="ap-link ap-danger" @click="removeLogo">Remove</button>
+        </div>
+        <p class="ap-note" style="text-align:left">
+          Shown on screen during the show if the host chooses — a free bonus on top
+          of the Pre-Show lobby. Without a logo we show “Sponsored by {{ account?.name }}”.
         </p>
       </template>
 

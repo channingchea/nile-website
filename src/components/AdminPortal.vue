@@ -248,6 +248,7 @@ type AdminRow = {
     image_url: string | null; headline: string; body: string | null;
     click_url: string; kind: "image" | "video" | null;
     video_path: string | null; duration_ms: number | null;
+    logo_path: string | null; // optional in-show sponsor logo (0137, lobby only)
     // Sent back on approve as a change fingerprint — see act().
     updated_at: string | null;
   }[];
@@ -262,6 +263,11 @@ const adVideoUrl = (cr: AdminRow["ad_creatives"][0] | undefined) =>
   cr?.video_path
     ? sb.storage.from("ad-videos").getPublicUrl(cr.video_path).data.publicUrl
     : "";
+// Public URL for a sponsor's in-show logo (ad-creatives bucket, 0137).
+const adLogoUrl = (cr: AdminRow["ad_creatives"][0] | undefined) =>
+  cr?.logo_path
+    ? sb.storage.from("ad-creatives").getPublicUrl(cr.logo_path).data.publicUrl
+    : "";
 
 const queue = ref<AdminRow[]>([]);
 const reviewCursor = ref<string | null>(null);
@@ -270,7 +276,7 @@ const topicNames = ref<Record<string, string>>({});
 const actingOn = ref("");
 
 const ADMIN_SELECT =
-  "id, name, status, budget_cents, starts_at, ends_at, created_at, placement, ad_creatives(image_url, headline, body, click_url, kind, video_path, duration_ms, updated_at), ad_targeting(topic_ids), advertiser_accounts(name, contact_email), events(title, scheduled_at)";
+  "id, name, status, budget_cents, starts_at, ends_at, created_at, placement, ad_creatives(image_url, headline, body, click_url, kind, video_path, duration_ms, logo_path, updated_at), ad_targeting(topic_ids), advertiser_accounts(name, contact_email), events(title, scheduled_at)";
 
 function fetchReview(cursor: string | null, limit: number) {
   let q = sb.from("ad_campaigns").select(ADMIN_SELECT)
@@ -1158,6 +1164,10 @@ const ADMIN_AUDIT_VERBS: Record<AdminAuditEntry["action"], string> = {
               class="ap-preview" controls muted playsinline preload="metadata"
             ></video>
             <img v-else-if="r.ad_creatives?.[0]" :src="r.ad_creatives[0].image_url ?? ''" class="ap-preview ap-clickable" alt="" @click="openDetail(r)" />
+            <div v-if="r.ad_creatives?.[0]?.logo_path" class="ap-logo">
+              <img :src="adLogoUrl(r.ad_creatives[0])" class="ap-logo-preview" alt="Sponsor logo" />
+              <span class="ap-note-inline">In-show sponsor logo</span>
+            </div>
             <h3 class="ap-rh ap-clickable" @click="openDetail(r)">{{ r.ad_creatives?.[0]?.headline ?? r.name }}</h3>
             <p class="ap-rb">{{ r.ad_creatives?.[0]?.body }}</p>
             <p class="ap-rmeta">
@@ -1239,6 +1249,10 @@ const ADMIN_AUDIT_VERBS: Record<AdminAuditEntry["action"], string> = {
               class="ap-preview" controls muted playsinline preload="metadata"
             ></video>
             <img v-else-if="r.ad_creatives?.[0]" :src="r.ad_creatives[0].image_url ?? ''" class="ap-preview ap-clickable" alt="" @click="openDetail(r)" />
+            <div v-if="r.ad_creatives?.[0]?.logo_path" class="ap-logo">
+              <img :src="adLogoUrl(r.ad_creatives[0])" class="ap-logo-preview" alt="Sponsor logo" />
+              <span class="ap-note-inline">In-show sponsor logo</span>
+            </div>
             <h3 class="ap-rh ap-clickable" @click="openDetail(r)">{{ r.ad_creatives?.[0]?.headline ?? r.name }}</h3>
             <p class="ap-rb">{{ r.ad_creatives?.[0]?.body }}</p>
             <p class="ap-rmeta">
@@ -1743,6 +1757,10 @@ const ADMIN_AUDIT_VERBS: Record<AdminAuditEntry["action"], string> = {
           class="ap-preview" controls muted playsinline preload="metadata"
         ></video>
         <img v-else-if="detail.ad_creatives?.[0]" :src="detail.ad_creatives[0].image_url ?? ''" class="ap-preview" alt="" />
+        <div v-if="detail.ad_creatives?.[0]?.logo_path" class="ap-logo">
+          <img :src="adLogoUrl(detail.ad_creatives[0])" class="ap-logo-preview" alt="Sponsor logo" />
+          <span class="ap-note-inline">In-show sponsor logo</span>
+        </div>
         <p v-if="detail.ad_creatives?.[0]?.body" class="ap-rb">{{ detail.ad_creatives[0].body }}</p>
         <dl class="ap-dl">
           <div><dt>Advertiser</dt><dd>{{ detail.advertiser_accounts?.name ?? 'Host boost' }}<template v-if="detail.advertiser_accounts"> ({{ detail.advertiser_accounts.contact_email }})</template></dd></div>
