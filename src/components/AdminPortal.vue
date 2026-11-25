@@ -171,13 +171,29 @@ const overview = ref<Overview | null>(null);
 const overviewError = ref("");
 const overviewLoading = ref(false);
 
+// Monthly cross-check of app store ticket sales against Apple's own report
+// (apple-payouts function, migration 0157). Shown on the overview; a mismatch
+// or a failed check is something to look at before the month-end payout.
+type AppleCheck = {
+  month: string; checked_at: string; apple_units: number; nile_units: number;
+  mismatches: { sku: string; apple: number; nile: number }[]; error: string | null;
+};
+const appleChecks = ref<AppleCheck[]>([]);
+
 async function loadOverview() {
   overviewLoading.value = true;
-  const { data, error } = await sb.rpc("get_admin_overview");
+  const [{ data, error }, checks] = await Promise.all([
+    sb.rpc("get_admin_overview"),
+    sb.from("apple_reconciliations").select("*").order("month", { ascending: false }).limit(3),
+  ]);
   if (error) overviewError.value = error.message;
   else { overview.value = data as Overview; overviewError.value = ""; }
+  appleChecks.value = (checks.data ?? []) as AppleCheck[];
   overviewLoading.value = false;
 }
+
+const appleMonth = (m: string) =>
+  new Date(`${m}T12:00:00Z`).toLocaleDateString(undefined, { month: "long", year: "numeric" });
 // Fire-and-forget badge refresh after an action changes a queue's size.
 const refreshBadges = () => { loadOverview(); };
 
@@ -1141,6 +1157,21 @@ const ADMIN_AUDIT_VERBS: Record<AdminAuditEntry["action"], string> = {
               <p v-for="r in g.rows" :key="r.label" class="ad-stat">
                 <span>{{ r.label }}</span><b>{{ r.value }}</b>
               </p>
+            </section>
+            <section v-if="appleChecks.length" class="ad-statcard">
+              <h3>App Store check</h3>
+              <template v-for="c in appleChecks" :key="c.month">
+                <p class="ad-stat">
+                  <span>{{ appleMonth(c.month) }}</span>
+                  <b v-if="c.error" class="ap-badge warn">Not checked</b>
+                  <b v-else-if="c.mismatches.length" class="ap-badge warn">{{ c.mismatches.length }} mismatch{{ c.mismatches.length === 1 ? '' : 'es' }}</b>
+                  <b v-else>OK · {{ c.nile_units }} sold</b>
+                </p>
+                <p v-if="c.error" class="ap-sub">{{ c.error }}</p>
+                <p v-for="m in c.mismatches" :key="m.sku" class="ap-sub">
+                  {{ m.sku.split('.').pop() }}: Apple {{ m.apple }}, Nile {{ m.nile }}
+                </p>
+              </template>
             </section>
           </div>
         </div>
