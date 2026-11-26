@@ -33,7 +33,19 @@ export default defineConfig({
   // the header and footer render as raw links (seen on iOS from an email
   // link, Aug and Nov 2026). The site's CSS is small enough that inlining
   // costs a few KB per page and saves a render-blocking request.
-  build: { inlineStylesheets: "always" },
+  //
+  // Scripts and other built files load from joinnile.com, never ads.: EasyList
+  // (the list nearly every ad blocker uses) blocks every non-image request to
+  // any host starting with "ads.", so on ads.joinnile.com the portal's own
+  // scripts were blocked and it never started. The folder is "_build", not
+  // "_astro", so no Cloudflare-cached copy from before (without the CORS
+  // header these cross-origin module scripts need) can be served.
+  // ASSETS_PREFIX overrides the origin for local testing.
+  build: {
+    inlineStylesheets: "always",
+    assets: "_build",
+    assetsPrefix: process.env.ASSETS_PREFIX || "https://joinnile.com",
+  },
   vite: {
     // Pin CSS minification to classic syntax for older iOS Safari. Without a
     // target, the minifier rewrites every `max-width`/`min-width` query to

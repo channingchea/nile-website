@@ -54,7 +54,7 @@ import "../../styles/portal.css";
             <p>
               Try reloading. If you use a content blocker, turn it off for
               ads.joinnile.com and reload. Still stuck? Email{" "}
-              <a href="mailto:support@joinnile.com">support@joinnile.com</a>{" "}
+              <Fragment set:html={`<!--email_off--><a href="mailto:support@joinnile.com">support@joinnile.com</a><!--/email_off-->`} />{" "}
               with a screenshot of this box.
             </p>
             <p class="pf-detail"></p>
