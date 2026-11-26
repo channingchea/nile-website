@@ -265,7 +265,7 @@ const hasTracking = Boolean(GA4_ID || ADS_ID || META_PIXEL_ID);
     </script>
 
     <script is:inline>
-      // Self-heal for a page whose hashed /_astro/ files are gone. Each deploy
+      // Self-heal for a page whose hashed asset files are gone. Each deploy
       // deletes the previous build's hashes, so any copy of this HTML that
       // outlives a deploy (a restored Safari tab, an in-app browser, a CDN
       // edge) asks for scripts that 404: the portal and waitlist islands never
