@@ -11,11 +11,11 @@
 
 /* Wrapper is wide enough for the dashboard/admin tables; narrow forms (auth,
    setup, builder) stay capped + centered via .ap-card below. */
-.ap { max-width: 880px; margin: 0 auto; font-family: var(--nile-font-body); color: var(--nile-txt-primary); }
+.ap { max-width: 1080px; margin: 0 auto; font-family: var(--nile-font-body); color: var(--nile-txt-primary); }
 .ap-card { background: var(--nile-bg-surface); border: 1px solid var(--nile-border);
   border-radius: var(--nile-r-lg); padding: var(--nile-s-8);
   max-width: 520px; margin-left: auto; margin-right: auto; }
-.ap-wide { max-width: 880px; }
+.ap-wide { max-width: 1080px; }
 .ap-h { font-family: var(--nile-font-display); font-size: 24px; margin: 0 0 var(--nile-s-5); letter-spacing: -0.01em; }
 .ap-sub { color: var(--nile-txt-secondary); font-size: 14px; margin: 4px 0 0; }
 .ap-label { display: block; font-size: 12px; color: var(--nile-txt-secondary);
@@ -30,6 +30,8 @@
 .ap-new { display: inline-block; width: auto; margin-bottom: var(--nile-s-6); }
 .ap-new-row { display: flex; align-items: center; gap: var(--nile-s-5); margin-bottom: var(--nile-s-6); }
 .ap-new-row .ap-new { margin-bottom: 0; }
+.ap-new-row .ap-link, .ap-new { white-space: nowrap; }
+.ap-sub + .ap-tbl { margin-top: var(--nile-s-5); }
 .ap-link { background: none; border: none; color: var(--nile-txt-secondary);
   cursor: pointer; font-size: 14px; text-decoration: underline; padding: 0; font-family: inherit; }
 .ap-note { color: var(--nile-txt-tertiary); font-size: 12px; text-align: center;
@@ -117,8 +119,8 @@
 
 .ap-tbl { width: 100%; border-collapse: collapse; font-size: 14px; }
 .ap-tbl th { text-align: left; color: var(--nile-txt-tertiary); font-weight: 600; font-size: 12px;
-  text-transform: uppercase; letter-spacing: 0.04em; padding: 8px 10px; border-bottom: 1px solid var(--nile-border); }
-.ap-tbl td { padding: 14px 10px; border-bottom: 1px solid var(--nile-border);
+  text-transform: uppercase; letter-spacing: 0.04em; padding: 8px; border-bottom: 1px solid var(--nile-border); }
+.ap-tbl td { padding: 14px 8px; border-bottom: 1px solid var(--nile-border);
   color: var(--nile-txt-secondary); white-space: nowrap; }
 /* Name column is the flexible one — let it wrap instead of the numeric cells. */
 .ap-tbl td.name { color: var(--nile-txt-primary); font-weight: 600;
@@ -132,7 +134,7 @@
 /* Folder tabs — one strip above the cards; the active tab merges into the card
    below it by matching its background and masking the shared 1px border. */
 .ap-tabs {
-  display: flex; align-items: flex-end; gap: 2px; max-width: 880px;
+  display: flex; align-items: flex-end; gap: 2px; max-width: 1080px;
   margin: 0 auto -1px; padding: 0 var(--nile-s-4);
   border-bottom: 1px solid var(--nile-border); position: relative; z-index: 1;
   overflow-x: auto; scrollbar-width: none;
@@ -281,10 +283,13 @@ a.ap-tab, a.ap-tab:hover { text-decoration: none; }
   margin: 0 0 var(--nile-s-2); font-size: 15px; }
 .ap-placements h3 .ap-note-inline { margin-top: 0; }
 
-/* ── Responsive: tablets & below (≤760px) ────────────────────────────────────
-   The 7-column tables get cramped well before phone widths, so collapse them
-   to stacked cards here (keeps the numeric cells from bleeding). */
-@media (max-width: 760px) {
+/* Name column needs room or a long headline wraps a word per line. */
+.ap-tbl td.name { min-width: 180px; }
+
+/* ── Responsive: below full desktop (≤1100px) ────────────────────────────────
+   The 9-column dashboard table needs ~1000px with a readable name column, so
+   below that it spilled out of its card. Collapse to stacked cards instead. */
+@media (max-width: 1100px) {
   .ap-tbl--cards, .ap-tbl--cards thead, .ap-tbl--cards tbody,
   .ap-tbl--cards tr, .ap-tbl--cards td { display: block; width: 100%; }
   .ap-tbl--cards thead { position: absolute; left: -9999px; }
@@ -292,15 +297,27 @@ a.ap-tab, a.ap-tab:hover { text-decoration: none; }
     border-radius: var(--nile-r-md); padding: var(--nile-s-3) var(--nile-s-4);
     margin-bottom: var(--nile-s-3); }
   .ap-tbl--cards td { border: none; padding: 6px 0;
-    display: flex; justify-content: space-between; gap: 12px; text-align: right;
-    white-space: normal; }
+    display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px 12px;
+    text-align: right; white-space: normal; }
+  /* A cell's secondary line ("1.58× each", "$0.79 / click") goes under its
+     value, not beside it as a third column. */
+  .ap-tbl--cards td > .ap-note-inline { flex-basis: 100%; margin-top: 0; max-width: none; }
   .ap-tbl--cards td[data-label]::before { content: attr(data-label);
     color: var(--nile-txt-tertiary); font-size: 12px; text-transform: uppercase;
     letter-spacing: 0.04em; text-align: left; flex: none; }
-  .ap-tbl--cards td.name { justify-content: flex-start; text-align: left; font-size: 15px; }
+  /* The name cell carries the notes, badges and recovery button: a plain block
+     so they stack under the title instead of squeezing it into a column. */
+  .ap-tbl--cards td.name { display: block; min-width: 0; text-align: left; font-size: 15px; }
+  .ap-tbl--cards td.name > .ap-note-inline { text-align: left; }
+  .ap-tbl--cards td.name > .ap-badge { display: inline-block; margin-left: 8px; vertical-align: 1px; }
   .ap-tbl--cards td.name::before { display: none; }
   .ap-tbl--cards td.ap-rowactions { justify-content: flex-end; }
   .ap-rowactions .ap-link + .ap-link { margin-left: 16px; }
+}
+/* Tablets and small laptops: a grid of cards rather than one stretched card. */
+@media (min-width: 621px) and (max-width: 1100px) {
+  .ap-tbl--cards tbody { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: var(--nile-s-3); }
+  .ap-tbl--cards tr { margin-bottom: 0; }
 }
 
 /* ── Responsive: phones (≤480px) ─────────────────────────────────────────── */
@@ -309,10 +326,10 @@ a.ap-tab, a.ap-tab:hover { text-decoration: none; }
   .ap-h { font-size: 21px; }
   .ap-top { flex-wrap: wrap; gap: var(--nile-s-3); }
   /* Tabs stay one horizontally-scrollable row rather than wrapping. */
-  .ap-tabs { padding: 0 var(--nile-s-2); }
-  .ap-tab { padding: 9px 12px; font-size: 13px; }
+  .ap-tabs { padding: 0 4px; }
+  .ap-tab { padding: 9px 8px; font-size: 13px; }
   .ap-tabs-gap { min-width: 0; }
-  .ap-new { width: 100%; text-align: center; }
+  .ap-new { flex: 1 1 auto; text-align: center; }
   .ap-grid { gap: 8px; }
   .ap-opt { padding: 13px 6px; font-size: 15px; }
   .ap-modal { padding: var(--nile-s-5); }

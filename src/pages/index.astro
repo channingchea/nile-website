@@ -30,7 +30,7 @@ const steps = [
     src: "/img/app-earnings.jpg",
     alt: "A host's Nile earnings screen showing ticket, tip and sponsorship totals",
     title: "Keep earning",
-    body: "Live ticket buyers get the replay free. Everyone else can buy access after. One show, multiple revenue windows.",
+    body: "Paid shows record a replay. Live ticket buyers watch it free, everyone else buys access after. One show, multiple revenue windows.",
   },
 ];
 
@@ -100,28 +100,33 @@ const features = [
   },
 ];
 
-// Placeholder live-now cards — swap for real event data at launch.
+// Example live-now cards (illustrative, not real-time) — swap for real event
+// data at launch.
 const liveNow = [
   {
     viewers: "1.2K",
+    name: "Basement Tapes Vol. 6",
     price: "$12",
     src: "/img/live-1-band.jpg",
     alt: "Band performing on a small indoor stage",
   },
   {
     viewers: "840",
+    name: "Open Mic Comedy Night",
     price: "$8",
     src: "/img/live-2-comedy.jpg",
     alt: "Stand-up comedian on stage holding a microphone",
   },
   {
     viewers: "410",
+    name: "Sunrise HIIT Live",
     price: "$20",
     src: "/img/live-3-fitness.jpg",
     alt: "Instructor leading a group fitness class in a studio",
   },
   {
     viewers: "2.1K",
+    name: "Rec League Finals",
     price: "$15",
     src: "/img/live-4-sports.jpg",
     alt: "Packed arena during a live basketball game",
@@ -243,9 +248,9 @@ const liveNow = [
         <h2>Watch like you're there.</h2>
         <p class="section-sub">Multi-angle live streaming you control</p>
         <p>
-          Choose your angle. Switch mid-show. Chat live. Miss the stream? Every
-          Nile event includes on-demand replay. Buy access anytime after. No
-          app download required. Watch from any browser, or go deeper with the
+          Choose your angle. Switch mid-show. Chat live. Miss the stream? Paid
+          shows come with an on-demand replay you can buy after. No app
+          download required. Watch from any browser, or go deeper with the
           Nile app.
         </p>
       </div>
@@ -276,7 +281,8 @@ const liveNow = [
       <p class="nile-eyebrow">Live now</p>
       <h2>See who's live right now.</h2>
       <p class="section-sub">
-        Real shows on Nile this moment: names, viewer counts, ticket prices.
+        Every show has its own crowd and its own ticket price. Pick one and
+        you're in.
       </p>
     </div>
     <div class="live-rail">
@@ -295,7 +301,7 @@ const liveNow = [
               <span class="live-count">◦ {e.viewers}</span>
             </div>
             <div class="live-meta">
-              <span class="live-name">Show name</span>
+              <span class="live-name">{e.name}</span>
               <span class="live-price">{e.price} ticket</span>
             </div>
           </div>
@@ -524,6 +530,10 @@ const liveNow = [
     max-width: var(--nile-max-width);
     margin-inline: auto;
     scroll-snap-type: x mandatory;
+    /* Without this the first snap point is the card's own edge, so the rail
+       loads scrolled past its left padding and the card sits flush to the
+       screen edge. */
+    scroll-padding-inline: var(--nile-s-6);
   }
   .live-card {
     flex: 0 0 230px;
@@ -605,10 +615,9 @@ const liveNow = [
       grid-template-columns: 1fr;
       gap: var(--nile-s-8);
     }
-    .steps,
     .audience-grid,
     .feature-grid {
-      grid-template-columns: 1fr;
+      grid-template-columns: 1fr 1fr;
     }
     .audience {
       flex-direction: column;
@@ -617,6 +626,14 @@ const liveNow = [
        an explicit band. */
     .audience-img {
       flex: 0 0 200px;
+    }
+  }
+  /* Full-width stacked CTAs are a phone pattern; tablets keep them inline. */
+  @media (max-width: 600px) {
+    .steps,
+    .audience-grid,
+    .feature-grid {
+      grid-template-columns: 1fr;
     }
     .hero-cta {
       flex-direction: column;

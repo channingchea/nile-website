@@ -117,7 +117,8 @@ const year = new Date().getFullYear();
   }
   .footer-legal {
     display: flex;
-    gap: var(--nile-s-4);
+    flex-wrap: wrap;
+    gap: var(--nile-s-3) var(--nile-s-4);
   }
   .footer-legal a {
     color: var(--nile-txt-tertiary);
@@ -134,6 +135,7 @@ const year = new Date().getFullYear();
     color: var(--nile-txt-tertiary);
     font-size: 0.85rem;
     font-family: var(--nile-font-body);
+    white-space: nowrap;
     cursor: pointer;
   }
   .privacy-choices:hover {

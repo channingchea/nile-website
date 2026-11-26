@@ -150,8 +150,8 @@ const description =
         of a bad connection.
       </p>
       <p class="reliability-body">
-        Every service also generates a replay automatically, so members who
-        missed the live broadcast can watch afterward.
+        Ticketed services also record a replay automatically, so members who
+        missed the live broadcast can watch for 30 days afterward.
       </p>
       <div class="reliability-chips">
         <span class="chip">auto-replay</span>
@@ -396,6 +396,9 @@ const description =
       grid-template-columns: 1fr;
       gap: var(--nile-s-8);
     }
+  }
+  /* Full-width stacked CTAs are a phone pattern; tablets keep them inline. */
+  @media (max-width: 600px) {
     .hero-cta {
       flex-direction: column;
       align-items: stretch;

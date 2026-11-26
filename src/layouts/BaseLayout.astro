@@ -68,7 +68,14 @@ const hasTracking = Boolean(GA4_ID || ADS_ID || META_PIXEL_ID);
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,1,0&family=Outfit:wght@300;400;500;600&family=Syne:wght@600;700;800&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&family=Syne:wght@600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <!-- Icons load separately with display=block: with swap, a slow or failed
+         load shows the ligature names ("play_circle") as words. icon_names
+         subsets the font to the glyphs we use (alphabetical; add new ones). -->
+    <link
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,1,0&icon_names=dynamic_feed,group,handshake,play_circle,rocket_launch,school&display=block"
       rel="stylesheet"
     />
 
@@ -258,30 +265,53 @@ const hasTracking = Boolean(GA4_ID || ADS_ID || META_PIXEL_ID);
     </script>
 
     <script is:inline>
-      // Self-heal for a browser still holding a pre-.htaccess cached copy of
-      // this page: its hashed stylesheets were deleted by a later deploy, so
-      // they 404 and the page renders unstyled. A failed same-origin sheet
-      // still exposes a CSSStyleSheet — it just has no rules. Reload once
-      // (a reload always revalidates); the guard stops any loop.
-      addEventListener("load", () => {
-        const stale = [
-          ...document.querySelectorAll('link[rel="stylesheet"][href^="/_astro/"]'),
-        ].some((l) => {
-          try {
-            return !l.sheet || l.sheet.cssRules.length === 0;
-          } catch {
-            return false;
-          }
-        });
-        if (!stale) return;
-        try {
-          if (sessionStorage.getItem("nile-css-recovery")) return;
-          sessionStorage.setItem("nile-css-recovery", "1");
-        } catch {
-          return;
+      // Self-heal for a page whose hashed /_astro/ files are gone. Each deploy
+      // deletes the previous build's hashes, so any copy of this HTML that
+      // outlives a deploy (a restored Safari tab, an in-app browser, a CDN
+      // edge) asks for scripts that 404: the portal and waitlist islands never
+      // mount. CSS can't break this way any more: it's inlined into every page
+      // (astro.config.mjs, inlineStylesheets: "always").
+      //
+      // An island that hydrated has lost its `ssr` attribute. One that hasn't,
+      // 5s after load, gets its module checked; a 404 means a stale page, so
+      // fetch a fresh copy with a cache-busting param (a plain reload can be
+      // answered from the same stale cache). At most once a minute per tab.
+      (() => {
+        const KEY = "nile-stale-recovery";
+        const url = new URL(location.href);
+        if (url.searchParams.has("_fresh")) {
+          url.searchParams.delete("_fresh");
+          history.replaceState(history.state, "", url);
         }
-        location.reload();
-      });
+        addEventListener("load", () =>
+          setTimeout(async () => {
+            const stuck = [
+              ...document.querySelectorAll("astro-island[ssr][component-url]"),
+            ].filter((el) => el.getAttribute("client") !== "visible");
+            if (!stuck.length) return;
+            const gone = await Promise.all(
+              stuck.map((el) =>
+                fetch(el.getAttribute("component-url"), {
+                  method: "HEAD",
+                  cache: "no-store",
+                })
+                  .then((r) => r.status === 404)
+                  .catch(() => false),
+              ),
+            );
+            if (!gone.includes(true)) return;
+            try {
+              const last = Number(sessionStorage.getItem(KEY) || 0);
+              if (Date.now() - last < 60000) return;
+              sessionStorage.setItem(KEY, String(Date.now()));
+            } catch {
+              return;
+            }
+            url.searchParams.set("_fresh", Date.now().toString(36));
+            location.replace(url);
+          }, 5000),
+        );
+      })();
     </script>
   </body>
 </html>

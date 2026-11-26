@@ -356,11 +356,17 @@ const softwareSchema = JSON.stringify({
   @media (max-width: 880px) {
     .device-grid,
     .steps {
-      grid-template-columns: 1fr;
+      grid-template-columns: 1fr 1fr;
     }
     .split {
       grid-template-columns: 1fr;
       gap: var(--nile-s-8);
+    }
+  }
+  @media (max-width: 600px) {
+    .device-grid,
+    .steps {
+      grid-template-columns: 1fr;
     }
   }
 </style>

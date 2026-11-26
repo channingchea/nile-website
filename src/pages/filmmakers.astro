@@ -541,18 +541,26 @@ const proofPremieres = [
     .vod-copy {
       order: -1;
     }
-    .hero-cta {
-      flex-direction: column;
-      align-items: stretch;
-    }
-    .hero-cta .nile-btn {
-      justify-content: center;
+    /* The 3:4 marquee shot fills a whole tablet screen once stacked. */
+    .wait-grid > :global(.wait-visual) {
+      aspect-ratio: 16 / 10 !important;
+      max-height: 460px;
     }
   }
 
   @media (max-width: 520px) {
     .earnings-row {
       grid-template-columns: 1fr;
+    }
+  }
+  /* Full-width stacked CTAs are a phone pattern; tablets keep them inline. */
+  @media (max-width: 600px) {
+    .hero-cta {
+      flex-direction: column;
+      align-items: stretch;
+    }
+    .hero-cta .nile-btn {
+      justify-content: center;
     }
   }
 </style>

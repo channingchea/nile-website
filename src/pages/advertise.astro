@@ -5,18 +5,23 @@ import { SITE } from "../site.config";
 
 const title = "Advertise to Engaged Live Audiences | Self-Serve Ads | Nile";
 const description =
-  "Reach niche, paying audiences inside live events. Run in-stream ads or boost an event with a self-serve portal. No minimum spend, no media buyer required.";
+  "Reach niche, paying audiences around live events. Run feed and Currents ads or sponsor a show from a self-serve portal. Campaigns from $10, no media buyer required.";
 
 const formats = [
   {
-    icon: "play_circle",
-    name: "In-Stream Ads",
-    body: "Your ad runs during a live Nile event, in front of an audience that's already locked in. Set your budget, choose your audience, and go. No minimum spend, no agency needed.",
+    icon: "dynamic_feed",
+    name: "Feed Ads",
+    body: "An image card in the Nile home feed, shown to people who picked the topics you target. Budgets from $10, running 3 to 14 days.",
   },
   {
-    icon: "rocket_launch",
-    name: "Event Boosts",
-    body: "Help a specific event reach more people before it goes live. Boosts put the event in front of Nile users who match the audience profile. Ideal if you're a venue, sponsor, or brand already associated with a show.",
+    icon: "play_circle",
+    name: "Currents Ads",
+    body: "A vertical video of up to 60 seconds, playing with sound between Currents, Nile's short-form clips. Same budgets, same targeting.",
+  },
+  {
+    icon: "handshake",
+    name: "Event Sponsorships",
+    body: "Sponsor a specific show's pre-show lobby, where the audience waits for it to start. You name your offer, the host decides, and you're only charged if they accept. Hosts can put your logo on screen during the show too.",
   },
 ];
 
@@ -58,8 +63,8 @@ const audiences = [
       </div>
       <div class="split-body">
         <p>
-          People on Nile bought a ticket to be there. They chose the show, they
-          paid for it, and they're watching. That's a different level of
+          People on Nile chose the show, most of them paid to be there, and
+          they're watching. That's a different level of
           attention than someone passively browsing a feed.
         </p>
         <p>
@@ -78,7 +83,7 @@ const audiences = [
     <div class="nile-container">
       <div class="centered-head">
         <p class="nile-eyebrow">Ad formats</p>
-        <h2>Two ways to reach them.</h2>
+        <h2>Three ways to reach them.</h2>
       </div>
       <div class="formats">
         {
@@ -101,9 +106,9 @@ const audiences = [
         <p class="nile-eyebrow">Self-serve</p>
         <h2>Set it up yourself in minutes.</h2>
         <p>
-          The Nile ad portal is built for business owners, not media buyers. Set
-          your budget, pick your audience category, choose your dates, and
-          launch. No calls, no contracts, no minimums.
+          The Nile ad portal is built for business owners, not media buyers.
+          Pick a format, upload your creative, choose who should see it, and
+          launch. Campaigns start at $10. No calls, no contracts.
         </p>
         <p>
           If you want to start small and see how it performs, that's exactly
@@ -112,10 +117,10 @@ const audiences = [
         <div class="self-serve-steps">
           {
             [
-              "Set your budget",
-              "Pick your audience",
-              "Choose your dates",
-              "Launch",
+              "Pick a format",
+              "Upload your creative",
+              "Choose topics and budget",
+              "Launch after a quick review",
             ].map((step, i) => (
               <div class="ss-step">
                 <span class="ss-num">{i + 1}</span>
@@ -218,7 +223,7 @@ const audiences = [
   /* Formats */
   .formats {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(3, 1fr);
     gap: var(--nile-s-6);
   }
   .format-icon {

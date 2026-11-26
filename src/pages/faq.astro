@@ -5,109 +5,6 @@ const title = "Nile FAQ: Hosting, Tickets, Watching & Advertising";
 const description =
   "Answers on streaming equipment, ticket pricing, payouts, replays, watching without an app, and advertising on Nile.";
 
-const faqSchema = JSON.stringify({
-  "@context": "https://schema.org",
-  "@type": "FAQPage",
-  mainEntity: [
-    {
-      "@type": "Question",
-      name: "What equipment do I need to stream?",
-      acceptedAnswer: {
-        "@type": "Answer",
-        text: "Just phones. Mount two or more phones at different angles and you have a Nile show. There's no minimum equipment requirement beyond that. A crew of two friends handling the phones is all it takes to get started.",
-      },
-    },
-    {
-      "@type": "Question",
-      name: "How does pricing work? Where does my money go?",
-      acceptedAnswer: {
-        "@type": "Answer",
-        text: "You set the ticket price for your event. Nile takes a cut to cover platform costs, and you keep roughly 50% of net revenue. The same applies to replay purchases after the show ends. Payouts go through Stripe directly to your account.",
-      },
-    },
-    {
-      "@type": "Question",
-      name: "Can I offer a free event?",
-      acceptedAnswer: {
-        "@type": "Answer",
-        text: "Not currently. Every event on Nile is ticketed. Part of that is intentional positioning: Nile is a premium experience, not another free streaming platform. But it's also practical: live multi-angle streaming carries real infrastructure costs that a free ticket price can't cover. Ticketing is how we keep the platform sustainable for everyone on it.",
-      },
-    },
-    {
-      "@type": "Question",
-      name: "Can I premiere a pre-recorded film on Nile?",
-      acceptedAnswer: {
-        "@type": "Answer",
-        text: "Yes. Upload your film ahead of time from the Film screen in the Nile app (up to 8 hours and 30 GB; a computer is best for big files), along with an optional trailer, poster and captions. At the start time you introduce it on camera and press Play, and everyone watches in step. When the credits roll, your cast joins you on stage for a live Q&A. You choose whether chat stays open during the film and whether there's a replay, and for how long.",
-      },
-    },
-    {
-      "@type": "Question",
-      name: "What camera angles can I stream?",
-      acceptedAnswer: {
-        "@type": "Answer",
-        text: "As many as you have phones for. Each phone in your setup becomes a separate angle that your audience can switch between. A two-phone setup gives you two angles. Add more phones, get more angles.",
-      },
-    },
-    {
-      "@type": "Question",
-      name: "What happens if my stream drops mid-show?",
-      acceptedAnswer: {
-        "@type": "Answer",
-        text: "You can rejoin the stream without ending the show. The broadcast keeps running, and your audience stays in the session. A dropped connection doesn't mean a cancelled event.",
-      },
-    },
-    {
-      "@type": "Question",
-      name: "How does VOD work?",
-      acceptedAnswer: {
-        "@type": "Answer",
-        text: "Every Nile event automatically generates a replay when the stream ends. Live ticket buyers get access included at no extra charge. You can set a separate replay price for anyone who wants to watch after the fact. Replay purchases pay out the same way as ticket sales.",
-      },
-    },
-    {
-      "@type": "Question",
-      name: "Do viewers need to download an app?",
-      acceptedAnswer: {
-        "@type": "Answer",
-        text: "No. Viewers can watch any Nile event from a web browser without downloading anything. The Nile app is available for iOS and Android and offers the full experience, but it's not required.",
-      },
-    },
-    {
-      "@type": "Question",
-      name: "Missed the show. Can I still watch?",
-      acceptedAnswer: {
-        "@type": "Answer",
-        text: "Yes, if the host has enabled replay access. Most Nile events include an on-demand replay you can purchase after the fact. Check the event page to see if replay is available and what the access price is.",
-      },
-    },
-    {
-      "@type": "Question",
-      name: "What shows up in my feed?",
-      acceptedAnswer: {
-        "@type": "Answer",
-        text: "Only what you asked for. When you sign up, you pick the topics you care about, and that's all Nile shows you. There's no hidden algorithm surfacing content you didn't choose. If your interests change, open Settings at any time and update your topics.",
-      },
-    },
-    {
-      "@type": "Question",
-      name: "How do I get started advertising on Nile?",
-      acceptedAnswer: {
-        "@type": "Answer",
-        text: "Through the self-serve ad portal. Set your budget, pick your audience category, choose your dates, and launch. No sales call, no minimum spend, no agency required.",
-      },
-    },
-    {
-      "@type": "Question",
-      name: "Is Nile available in my country?",
-      acceptedAnswer: {
-        "@type": "Answer",
-        text: "Nile is available globally for viewers. Host availability and payout support depend on Stripe's coverage in your region. Check Stripe's supported countries list to confirm payouts are available where you are.",
-      },
-    },
-  ],
-});
-
 const sections = [
   {
     id: "hosts",
@@ -120,11 +17,11 @@ const sections = [
       },
       {
         q: "How does pricing work? Where does my money go?",
-        a: "You set the ticket price for your event. Nile takes a cut to cover platform costs, and you keep roughly 50% of net revenue. The same applies to replay purchases after the show ends. Payouts go through Stripe directly to your account.",
+        a: "You set the ticket price. Paid shows start at $3 for the first hour, plus $1 for each extra half hour. You keep 60% of every ticket and replay sold, and card fees come out of Nile's share, not yours. Tips are yours minus a 10% fee. Payouts go through Stripe directly to your account.",
       },
       {
         q: "Can I offer a free event?",
-        a: "Not currently. Every event on Nile is ticketed. Part of that is intentional positioning: Nile is a premium experience, not another free streaming platform. But it's also practical: live multi-angle streaming carries real infrastructure costs that a free ticket price can't cover. Ticketing is how we keep the platform sustainable for everyone on it. If your goal is reach over revenue, free platforms are the right tool for that. If you want to get paid for your content, Nile is built for you.",
+        a: "Yes. Free shows can run up to two hours and stream in standard definition, and they aren't recorded, so there's no replay afterward. Live multi-angle streaming has real costs, and those limits are how free shows stay possible. When you want HD, longer shows and a replay to sell, make it a paid show.",
       },
       {
         q: "What if nobody buys a ticket?",
@@ -152,7 +49,7 @@ const sections = [
       },
       {
         q: "How does VOD work?",
-        a: "Every Nile event automatically generates a replay when the stream ends. Live ticket buyers get access included at no extra charge. You can set a separate replay price for anyone who wants to watch after the fact. You control that price, and replay purchases pay out the same way as ticket sales.",
+        a: "Every paid show records a replay automatically. Live ticket buyers watch it at no extra charge. After the show you set a replay price for everyone else (or make it free); if you don't, it goes up at your ticket price after 48 hours. Replays stay available for 30 days, and replay sales pay out the same way as tickets.",
       },
     ],
   },
@@ -167,7 +64,7 @@ const sections = [
       },
       {
         q: "Missed the show. Can I still watch?",
-        a: "Yes, if the host has enabled replay access. Most Nile events include an on-demand replay you can purchase after the fact. Check the event page to see if replay is available and what the access price is.",
+        a: "Usually. Paid shows have an on-demand replay for 30 days after the show, and if you bought a live ticket you already have access. Free shows are live only. Check the event page to see whether a replay is available and what it costs.",
       },
       {
         q: "How do I find events to watch?",
@@ -186,11 +83,11 @@ const sections = [
     items: [
       {
         q: "How do I get started advertising on Nile?",
-        a: "Through the self-serve ad portal. Set your budget, pick your audience category, choose your dates, and launch. No sales call, no minimum spend, no agency required.",
+        a: "Through the self-serve ad portal at ads.joinnile.com. Pick a format, upload your creative, choose the topics you want to reach and a budget from $10, and launch. Every ad is checked against our ad policies before it runs. No sales call, no contract, no agency required.",
       },
       {
         q: "What ad formats are available?",
-        a: "Two formats: in-stream ads that run during live events, and event boosts that increase an event's visibility before it goes live. Both are managed through the same self-serve portal.",
+        a: "Three: feed ads (an image card in the home feed), Currents ads (a vertical video of up to 60 seconds between Currents), and event sponsorships, where you make an offer to sponsor a specific show's pre-show lobby. The host decides whether to accept, you're only charged if they do, and they can put your logo on screen during the show too. All three run from the same self-serve portal.",
       },
     ],
   },
@@ -206,6 +103,19 @@ const sections = [
     ],
   },
 ];
+
+// Structured data for search, built from the same list so the two can't drift.
+const faqSchema = JSON.stringify({
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: sections.flatMap((sec) =>
+    sec.items.map((i) => ({
+      "@type": "Question",
+      name: i.q,
+      acceptedAnswer: { "@type": "Answer", text: i.a },
+    })),
+  ),
+});
 ---
 
 <BaseLayout title={title} description={description} canonical="/faq">

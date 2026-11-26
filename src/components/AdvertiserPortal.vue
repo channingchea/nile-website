@@ -1208,7 +1208,7 @@ const activeTab = computed(() => (view.value === "build" ? "dash" : view.value))
       <span class="ap-tabs-gap"></span>
       <!-- The only entry point into the staff portal; /admin is noindex and
            linked from nowhere else. -->
-      <a v-if="isAdmin" class="ap-tab ap-tab--quiet" href="/admin">Nile admin →</a>
+      <a v-if="isAdmin" class="ap-tab ap-tab--quiet" href="/admin">Admin →</a>
       <button type="button" class="ap-tab ap-tab--quiet" @click="signOut">Sign out</button>
     </nav>
 

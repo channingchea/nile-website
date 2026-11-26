@@ -123,9 +123,9 @@ const topics = [
         <p class="nile-eyebrow">Replays</p>
         <h2>Missed it live? You can still watch.</h2>
         <p>
-          Every Nile event includes an on-demand replay. If you bought a live
-          ticket, you already have access. If you found out after the fact, you
-          can buy the replay anytime. The show doesn't disappear.
+          Paid shows come with an on-demand replay. If you bought a live ticket,
+          you already have access. If you found out after the fact, you can buy
+          the replay for 30 days after the show. Free shows are live only.
         </p>
       </div>
     </div>
@@ -328,6 +328,9 @@ const topics = [
     .vod-copy {
       order: -1;
     }
+  }
+  /* Full-width stacked CTAs are a phone pattern; tablets keep them inline. */
+  @media (max-width: 600px) {
     .hero-cta {
       flex-direction: column;
       align-items: stretch;

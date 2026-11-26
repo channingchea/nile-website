@@ -16,7 +16,7 @@ const steps = [
   {
     n: 2,
     title: "Set your ticket price",
-    body: "You decide what your show is worth. There are no free events on Nile: every show is a ticketed experience.",
+    body: "You decide what your show is worth. Paid shows start at $3 for the first hour. Free shows work too, for up to two hours.",
   },
   {
     n: 3,
@@ -105,14 +105,14 @@ const proofShows = [
         </p>
         <p>
           Live ticket buyers get the replay included. Everyone who missed the
-          show can buy replay access after the fact. That's ticket revenue
+          show can buy replay access for a month after. That's ticket revenue
           before, during, and after the event.
         </p>
         <div class="revenue-card nile-card">
-          <span class="revenue-figure">50%</span>
+          <span class="revenue-figure">60%</span>
           <p>
-            After platform costs, you keep roughly 50% of net revenue. No
-            guesswork, no rev share buried in the fine print.
+            You keep 60% of every ticket and replay you sell. Card fees come out
+            of Nile's share, not yours. No rev share buried in the fine print.
           </p>
         </div>
       </div>
@@ -198,9 +198,9 @@ const proofShows = [
         <p class="nile-eyebrow">Replays / VOD</p>
         <h2>The show keeps earning after it ends.</h2>
         <p>
-          Every Nile event generates a replay automatically. Live ticket buyers
-          get access included. Anyone who finds you after the fact can buy the
-          replay at whatever price you set.
+          Every paid show records a replay automatically. Live ticket buyers
+          get access included. Anyone who finds you in the 30 days after can buy
+          the replay at whatever price you set.
         </p>
         <p>
           A late-night set. A sold-out workshop. A one-time performance. They all
@@ -565,19 +565,22 @@ const proofShows = [
     .vod-copy {
       order: -1;
     }
-    .hero-cta {
-      flex-direction: column;
-      align-items: stretch;
-    }
-    .hero-cta .nile-btn {
-      justify-content: center;
-    }
   }
 
   @media (max-width: 520px) {
     .steps,
     .earnings-row {
       grid-template-columns: 1fr;
+    }
+  }
+  /* Full-width stacked CTAs are a phone pattern; tablets keep them inline. */
+  @media (max-width: 600px) {
+    .hero-cta {
+      flex-direction: column;
+      align-items: stretch;
+    }
+    .hero-cta .nile-btn {
+      justify-content: center;
     }
   }
 </style>

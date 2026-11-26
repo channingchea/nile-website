@@ -160,9 +160,9 @@ const useCases = [
         <p class="nile-eyebrow">Replays / VOD</p>
         <h2>Every stream has a second life.</h2>
         <p>
-          Live ticket buyers get the replay included. Anyone who missed the
-          stream can buy replay access after. A single session keeps earning
-          long after you close the app.
+          Paid streams record a replay. Live ticket buyers get it included.
+          Anyone who missed the stream has 30 days to buy access. A single
+          session keeps earning long after you close the app.
         </p>
         <div class="chips">
           <span class="chip">live ticket sales</span>
@@ -471,11 +471,20 @@ const useCases = [
       grid-template-columns: 1fr;
       gap: var(--nile-s-8);
     }
-    .use-cases {
-      grid-template-columns: 1fr;
-    }
     .vod-copy {
       order: -1;
+    }
+    .tier-row {
+      flex-direction: column;
+    }
+    .tier {
+      width: 100%;
+    }
+  }
+  /* Full-width stacked CTAs are a phone pattern; tablets keep them inline. */
+  @media (max-width: 600px) {
+    .use-cases {
+      grid-template-columns: 1fr;
     }
     .hero-cta {
       flex-direction: column;
@@ -483,12 +492,6 @@ const useCases = [
     }
     .hero-cta .nile-btn {
       justify-content: center;
-    }
-    .tier-row {
-      flex-direction: column;
-    }
-    .tier {
-      width: 100%;
     }
   }
 </style>

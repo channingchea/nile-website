@@ -151,13 +151,13 @@ const proofShows = [
         <p class="nile-eyebrow">Replays / VOD</p>
         <h2>A late-night set that earns for weeks.</h2>
         <p>
-          Every show on Nile generates a replay automatically. Live ticket
-          buyers get it included. Fans who missed the show can buy replay access
-          after the fact at whatever price you set.
+          Every paid show on Nile records a replay automatically. Live ticket
+          buyers get it included. Fans who missed the show have 30 days to buy
+          replay access at whatever price you set.
         </p>
         <p>
-          One performance. Revenue before the show, during it, and long after
-          the lights go down.
+          One performance. Revenue before the show, during it, and for weeks
+          after the lights go down.
         </p>
         <div class="chips">
           <span class="chip">ticket sales</span>
@@ -487,18 +487,21 @@ const proofShows = [
     .vod-copy {
       order: -1;
     }
+  }
+
+  @media (max-width: 520px) {
+    .earnings-row {
+      grid-template-columns: 1fr;
+    }
+  }
+  /* Full-width stacked CTAs are a phone pattern; tablets keep them inline. */
+  @media (max-width: 600px) {
     .hero-cta {
       flex-direction: column;
       align-items: stretch;
     }
     .hero-cta .nile-btn {
       justify-content: center;
-    }
-  }
-
-  @media (max-width: 520px) {
-    .earnings-row {
-      grid-template-columns: 1fr;
     }
   }
 </style>

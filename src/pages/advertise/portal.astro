@@ -30,6 +30,8 @@ import "../../styles/portal.css";
 </BaseLayout>
 
 <style>
-  .portal-wrap { padding-top: var(--nile-s-6); padding-bottom: var(--nile-s-20); }
+  /* Same column as the portal below (.ap), so the title lines up with it. */
+  .portal-wrap { max-width: calc(1080px + 2 * var(--nile-s-6));
+    padding-top: var(--nile-s-6); padding-bottom: var(--nile-s-20); }
   .portal-h1 { font-size: clamp(28px, 5vw, 40px); margin: 0 0 var(--nile-s-8); }
 </style>

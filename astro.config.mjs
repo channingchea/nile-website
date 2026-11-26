@@ -28,6 +28,12 @@ export default defineConfig({
         ].some((noindexPath) => page.includes(noindexPath)),
     }),
   ],
+  // Inline every stylesheet into its page. A separate hashed CSS file is one
+  // more thing a stale cached page can lose after a deploy, and when it goes
+  // the header and footer render as raw links (seen on iOS from an email
+  // link, Aug and Nov 2026). The site's CSS is small enough that inlining
+  // costs a few KB per page and saves a render-blocking request.
+  build: { inlineStylesheets: "always" },
   vite: {
     // Pin CSS minification to classic syntax for older iOS Safari. Without a
     // target, the minifier rewrites every `max-width`/`min-width` query to
