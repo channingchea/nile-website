@@ -1,7 +1,7 @@
-/* Portal chrome (.ap-*) — shared by the advertiser portal (AdvertiserPortal.vue)
+/* Portal chrome (.ap-*) — shared by the advertiser portal (PortalApp.vue)
    and the staff admin portal (AdminPortal.vue).
 
-   Lifted verbatim out of AdvertiserPortal.vue's <style scoped> so both portals
+   Lifted verbatim out of the advertiser portal (now PortalApp.vue)'s <style scoped> so both portals
    render the same cards, tables, badges and modals. Class names are unchanged.
    The only edit was scoping the two bare `.dot` rules under .ap-chart-legend —
    `scoped` used to do that for us and this file is global.

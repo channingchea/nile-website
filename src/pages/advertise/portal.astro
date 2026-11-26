@@ -4,7 +4,9 @@
 // notes). Rendered as a client-only Vue island: it's fully auth-gated with no
 // meaningful static content, so there's nothing to pre-render or index.
 import BaseLayout from "../../layouts/BaseLayout.astro";
-import AdvertiserPortal from "../../components/AdvertiserPortal.vue";
+// Not named "Advertiser…": the island's JS file takes the component's name, and
+// content blockers filter script URLs containing words like "advertiser".
+import PortalApp from "../../components/PortalApp.vue";
 // Portal chrome (.ap-*) now lives in a shared stylesheet so the staff admin
 // portal can reuse it. Imported here rather than inside the .vue file so it
 // ships as a stylesheet, not inside the client:only island's JS.
@@ -14,7 +16,7 @@ import "../../styles/portal.css";
 <BaseLayout
   title="Advertiser Portal · Nile Ads"
   description="Create and manage your Nile ad campaigns."
-  canonical="/advertise/portal"
+  canonical="https://ads.joinnile.com/advertise/portal/"
 >
   <Fragment slot="head">
     <meta name="robots" content="noindex" />
@@ -24,7 +26,41 @@ import "../../styles/portal.css";
     <div class="nile-container portal-wrap">
       <p class="nile-eyebrow">Nile Ads</p>
       <h1 class="portal-h1">Advertiser portal</h1>
-      <AdvertiserPortal client:only="vue" />
+      <script is:inline>
+        // If the portal never mounts (blocked or failing script), say so and
+        // show the error instead of leaving an empty page.
+        (() => {
+          const errs = [];
+          const note = (m) => m && errs.push(String(m).slice(0, 160));
+          addEventListener("error", (e) => note(e.message || e.target?.src), true);
+          addEventListener("unhandledrejection", (e) => note(e.reason?.message || e.reason));
+          // Astro reports a failed island import through console.error.
+          const ce = console.error;
+          console.error = (...a) => { note(a.map((x) => x?.message || x).join(" ")); ce(...a); };
+          setTimeout(() => {
+            const fb = document.getElementById("portal-fallback");
+            if (!fb) return;
+            fb.querySelector(".pf-wait").hidden = true;
+            fb.querySelector(".pf-fail").hidden = false;
+            fb.querySelector(".pf-detail").textContent = errs.slice(0, 3).join(" · ");
+          }, 10000);
+        })();
+      </script>
+      <PortalApp client:only="vue">
+        <div slot="fallback" id="portal-fallback" class="ap-card portal-fallback">
+          <p class="pf-wait">Loading the portal…</p>
+          <div class="pf-fail" hidden>
+            <h2 class="ap-h">The portal didn't load</h2>
+            <p>
+              Try reloading. If you use a content blocker, turn it off for
+              ads.joinnile.com and reload. Still stuck? Email{" "}
+              <a href="mailto:support@joinnile.com">support@joinnile.com</a>{" "}
+              with a screenshot of this box.
+            </p>
+            <p class="pf-detail"></p>
+          </div>
+        </div>
+      </PortalApp>
     </div>
   </section>
 </BaseLayout>
@@ -33,5 +69,8 @@ import "../../styles/portal.css";
   /* Same column as the portal below (.ap), so the title lines up with it. */
   .portal-wrap { max-width: calc(1080px + 2 * var(--nile-s-6));
     padding-top: var(--nile-s-6); padding-bottom: var(--nile-s-20); }
+  .portal-fallback { color: var(--nile-txt-secondary); }
+  .portal-fallback p { margin: 0 0 var(--nile-s-3); }
+  .pf-detail { font-size: 12px; color: var(--nile-txt-tertiary); word-break: break-word; }
   .portal-h1 { font-size: clamp(28px, 5vw, 40px); margin: 0 0 var(--nile-s-8); }
 </style>

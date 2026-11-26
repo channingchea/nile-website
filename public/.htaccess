@@ -1,3 +1,29 @@
+# ── Hosts ─────────────────────────────────────────────────────────────────────
+# joinnile.com and ads.joinnile.com share this one build (same docroot), so
+# host-specific routing lives here.
+#
+# ads.joinnile.com is the advertiser site only: its home page is the Advertise
+# page (served at "/", no redirect), the portal stays at /advertise/portal/,
+# and every other page 301s to the same path on joinnile.com. Built assets and
+# static files are served on both hosts, or the ads pages would lose them.
+#
+# The portal itself lives on ads only. Sign-ins are stored per host, so one
+# copy on each would mean two separate sign-ins for the same advertiser.
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+
+  RewriteCond %{HTTP_HOST} ^ads\.joinnile\.com$ [NC]
+  RewriteRule ^$ advertise/index.html [L]
+
+  RewriteCond %{HTTP_HOST} ^ads\.joinnile\.com$ [NC]
+  RewriteCond %{REQUEST_URI} !^/(advertise|_astro|img|og)(/|$)
+  RewriteCond %{REQUEST_URI} !\.(png|jpe?g|gif|svg|ico|webp|avif|mp4|woff2?|xml|txt|json|webmanifest)$ [NC]
+  RewriteRule ^ https://joinnile.com%{REQUEST_URI} [R=301,L]
+
+  RewriteCond %{HTTP_HOST} ^(www\.)?joinnile\.com$ [NC]
+  RewriteRule ^advertise/portal(/.*)?$ https://ads.joinnile.com/advertise/portal/ [R=301,L]
+</IfModule>
+
 # Cache policy for the static Astro build.
 #
 # Filenames under /_astro/ are content-hashed, and every deploy deletes the
